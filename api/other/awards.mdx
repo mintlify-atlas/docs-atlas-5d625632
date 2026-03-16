@@ -1,0 +1,286 @@
+---
+title: 'Awards'
+description: 'Create and manage awards granted to teams within a competition edition.'
+---
+
+An **Award** represents a prize given to a specific team within a specific edition. Each award has a unique name per edition, and is linked to both the edition it belongs to and the team that won it.
+
+## The Award object
+
+<ResponseField name="id" type="integer">
+  Auto-generated unique identifier for the award.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  The name of the award (e.g. `"Best Innovation"`). Must be non-blank. Unique within a given edition.
+</ResponseField>
+
+<ResponseField name="edition" type="string" required>
+  URI reference to the edition this award belongs to.
+</ResponseField>
+
+<ResponseField name="winner" type="string" required>
+  URI reference to the team that won the award.
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  HAL hypermedia links for navigation.
+  <Expandable title="properties">
+    <ResponseField name="_links.self.href" type="string">
+      URL of this award resource.
+    </ResponseField>
+    <ResponseField name="_links.award.href" type="string">
+      Canonical URL of this award.
+    </ResponseField>
+    <ResponseField name="_links.edition.href" type="string">
+      URL of the linked edition.
+    </ResponseField>
+    <ResponseField name="_links.winner.href" type="string">
+      URL of the winning team.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Endpoints
+
+### List all awards
+
+```
+GET /awards
+```
+
+Returns a paginated list of all awards.
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/awards
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "_embedded": {
+    "awards": [
+      {
+        "id": 1,
+        "name": "Best Innovation",
+        "edition": "/editions/1",
+        "winner": "/teams/LegoStars",
+        "_links": {
+          "self": { "href": "http://localhost:8080/awards/1" },
+          "award": { "href": "http://localhost:8080/awards/1" },
+          "edition": { "href": "http://localhost:8080/awards/1/edition" },
+          "winner": { "href": "http://localhost:8080/awards/1/winner" }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": { "href": "http://localhost:8080/awards" }
+  },
+  "page": { "size": 20, "totalElements": 1, "totalPages": 1, "number": 0 }
+}
+```
+
+---
+
+### Get a single award
+
+```
+GET /awards/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/awards/1
+```
+
+</CodeGroup>
+
+---
+
+### Create an award
+
+```
+POST /awards
+```
+
+<ParamField body="name" type="string" required>
+  The name of the award. Must be non-blank. Must be unique within the given edition.
+</ParamField>
+
+<ParamField body="edition" type="string" required>
+  URI of the edition this award belongs to (e.g. `"/editions/1"`).
+</ParamField>
+
+<ParamField body="winner" type="string" required>
+  URI of the team that won the award (e.g. `"/teams/LegoStars"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/awards \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Best Innovation",
+    "edition": "/editions/1",
+    "winner": "/teams/LegoStars"
+  }'
+```
+
+</CodeGroup>
+
+```json Response (201 Created)
+{
+  "id": 1,
+  "name": "Best Innovation",
+  "edition": "/editions/1",
+  "winner": "/teams/LegoStars",
+  "_links": {
+    "self": { "href": "http://localhost:8080/awards/1" },
+    "award": { "href": "http://localhost:8080/awards/1" },
+    "edition": { "href": "http://localhost:8080/awards/1/edition" },
+    "winner": { "href": "http://localhost:8080/awards/1/winner" }
+  }
+}
+```
+
+---
+
+### Update an award
+
+```
+PUT /awards/{id}
+```
+
+Full replacement of the award resource.
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT http://localhost:8080/awards/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Best Robot Design",
+    "edition": "/editions/1",
+    "winner": "/teams/LegoStars"
+  }'
+```
+
+</CodeGroup>
+
+---
+
+### Delete an award
+
+```
+DELETE /awards/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE http://localhost:8080/awards/1
+```
+
+</CodeGroup>
+
+---
+
+## Search endpoints
+
+Search methods are exposed at `/awards/search`.
+
+### Find by edition
+
+```
+GET /awards/search/findByEdition?edition={editionUri}
+```
+
+Returns all awards presented in a specific edition.
+
+<ParamField query="edition" type="string" required>
+  URI of the edition to filter by (e.g. `"/editions/1"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/awards/search/findByEdition?edition=/editions/1"
+```
+
+</CodeGroup>
+
+---
+
+### Find by winner
+
+```
+GET /awards/search/findByWinner?winner={teamUri}
+```
+
+Returns all awards won by a specific team.
+
+<ParamField query="winner" type="string" required>
+  URI of the team to filter by (e.g. `"/teams/LegoStars"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/awards/search/findByWinner?winner=/teams/LegoStars"
+```
+
+</CodeGroup>
+
+---
+
+### Find by winner name (partial, case-insensitive)
+
+```
+GET /awards/search/findByWinnerNameContainingIgnoreCase?name={substring}
+```
+
+Returns all awards where the winning team's name contains the given substring. The search is case-insensitive.
+
+<ParamField query="name" type="string" required>
+  Substring to search for within team names.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/awards/search/findByWinnerNameContainingIgnoreCase?name=lego"
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "_embedded": {
+    "awards": [
+      {
+        "id": 1,
+        "name": "Best Innovation",
+        "edition": "/editions/1",
+        "winner": "/teams/LegoStars"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Validation rules
+
+- `name` must not be blank.
+- `edition` must be a valid, existing edition reference.
+- `winner` must be a valid, existing team reference.
+- The combination of `name` and `edition` must be unique — duplicate award names within the same edition are rejected with `400 Bad Request`.

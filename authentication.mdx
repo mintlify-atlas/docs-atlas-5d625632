@@ -1,0 +1,120 @@
+---
+title: "Authentication"
+description: "How the First Lego League Backend handles identity and access control."
+---
+
+## Overview
+
+The API uses **HTTP Basic Authentication** over every request. There are no sessions and no tokens to manage — credentials are sent with each call.
+
+<Note>
+  The server is configured with `SessionCreationPolicy.STATELESS`, meaning no HTTP session is ever created or stored. Every request must carry its own credentials.
+</Note>
+
+## How HTTP Basic Authentication works
+
+Include an `Authorization` header whose value is the word `Basic` followed by a Base64-encoded string of `username:password`:
+
+```
+Authorization: Basic base64(username:password)
+```
+
+With `curl`, use the `-u` flag and let curl handle the encoding:
+
+```bash
+curl -u alice:supersecret123 http://localhost:8080/identity
+```
+
+To construct the header manually:
+
+```bash
+# Encode credentials
+echo -n 'alice:supersecret123' | base64
+# Output: YWxpY2U6c3VwZXJzZWNyZXQxMjM=
+
+# Use the encoded value in the header
+curl -H "Authorization: Basic YWxpY2U6c3VwZXJzZWNyZXQxMjM=" \
+  http://localhost:8080/identity
+```
+
+The realm name is **`demo`**, as configured in `WebSecurityConfig`.
+
+## Endpoint access rules
+
+Access control is enforced by Spring Security. The rules below are applied **in order** — the first matching rule wins.
+
+| Method | Path pattern | Access rule | Notes |
+|--------|-------------|-------------|-------|
+| `GET` | `/identity` | Authenticated | Returns the current user |
+| `GET` | `/users` | Authenticated | List all users |
+| `GET` | `/editions/*/volunteers` | Authenticated | Edition volunteer list |
+| `POST` | `/users` | Anonymous only | Registration — authenticated users get **403** |
+| `POST` | `/matchResults/register` | Authenticated | Register a match result |
+| `POST` | `/users/*` | Denied (all) | Always **403** |
+| `POST` | `/*/*` | Authenticated | Create sub-resources |
+| `PUT` | `/*/*` | Authenticated | Replace a resource |
+| `PATCH` | `/*/*` | Authenticated | Partially update a resource |
+| `DELETE` | `/*/*` | Authenticated | Delete a resource |
+| `GET` | `/**` | Public (`permitAll`) | Read-only access, Swagger UI, HAL Explorer |
+
+<Warning>
+  `POST /users/*` is explicitly **denied for everyone**, including authenticated users. This prevents accidental sub-resource creation under a user.
+</Warning>
+
+## User model constraints
+
+Credentials are validated against the `users` table. The `User` entity enforces the following rules at registration time:
+
+| Field | Constraint |
+|-------|------------|
+| `id` (username) | Required, non-blank, must be unique |
+| `email` | Required, valid email format, must be unique |
+| `password` | Required, 8–256 characters (BCrypt-hashed at rest, never returned in responses) |
+
+## curl examples
+
+<CodeGroup>
+
+```bash Register a new user (no auth required)
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "alice",
+    "email": "alice@example.com",
+    "password": "supersecret123"
+  }'
+```
+
+```bash Get current identity (auth required)
+curl -u alice:supersecret123 \
+  http://localhost:8080/identity
+```
+
+```bash List all users (auth required)
+curl -u alice:supersecret123 \
+  http://localhost:8080/users
+```
+
+```bash Create a sub-resource (auth required)
+curl -X POST http://localhost:8080/editions/1/teams \
+  -u alice:supersecret123 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Team Robo"}'
+```
+
+```bash Delete a resource (auth required)
+curl -X DELETE http://localhost:8080/teams/42 \
+  -u alice:supersecret123
+```
+
+</CodeGroup>
+
+## CORS
+
+The following origins are allowed in production:
+
+- `https://www.firstlegoleague.win`
+- `https://*.vercel.app`
+- `http://localhost:3000`
+
+Allowed methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`. Credentials are permitted in cross-origin requests.

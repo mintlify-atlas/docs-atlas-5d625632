@@ -1,0 +1,261 @@
+---
+title: 'Media content'
+description: 'Manage media content items such as images, videos, and documents associated with editions.'
+---
+
+A **MediaContent** represents a media asset (image, video, document, etc.) identified by its URL. Each item has a type and can optionally be associated with an edition. The `url` field serves as the primary key.
+
+## The MediaContent object
+
+<ResponseField name="url" type="string" required>
+  The URL of the media asset. Acts as the unique identifier for this resource. Must be non-blank.
+</ResponseField>
+
+<ResponseField name="type" type="string" required>
+  The media type (e.g. `"image"`, `"video"`, `"document"`, `"pdf"`). Must be non-blank.
+</ResponseField>
+
+<ResponseField name="edition" type="string">
+  URI reference to the edition this media content belongs to. Optional.
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  HAL hypermedia links for navigation.
+  <Expandable title="properties">
+    <ResponseField name="_links.self.href" type="string">
+      URL of this media content resource.
+    </ResponseField>
+    <ResponseField name="_links.mediaContent.href" type="string">
+      Canonical URL of this media content.
+    </ResponseField>
+    <ResponseField name="_links.edition.href" type="string">
+      URL of the linked edition, if set.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Endpoints
+
+### List all media content
+
+```
+GET /mediaContents
+```
+
+Returns a paginated list of all media content items.
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/mediaContents
+```
+
+</CodeGroup>
+
+---
+
+### Get a single media content item
+
+```
+GET /mediaContents/{url}
+```
+
+<Note>
+  Because `url` is the primary key and may contain special characters, you may need to URL-encode the identifier when using it in a path segment.
+</Note>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/mediaContents/photo123
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "url": "photo123",
+  "type": "image",
+  "edition": null,
+  "_links": {
+    "self": { "href": "http://localhost:8080/mediaContents/photo123" },
+    "mediaContent": { "href": "http://localhost:8080/mediaContents/photo123" }
+  }
+}
+```
+
+---
+
+### Create a media content item
+
+```
+POST /mediaContents
+```
+
+<ParamField body="url" type="string" required>
+  The URL of the media asset. Used as the resource identifier. Must be non-blank and unique.
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  The media type (e.g. `"image"`, `"video"`, `"document"`). Must be non-blank.
+</ParamField>
+
+<ParamField body="edition" type="string">
+  URI of the edition to associate this content with (e.g. `"/editions/1"`). Optional.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/mediaContents \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{
+    "url": "photo123",
+    "type": "image"
+  }'
+```
+
+</CodeGroup>
+
+```json Response (201 Created)
+{
+  "url": "photo123",
+  "type": "image",
+  "edition": null,
+  "_links": {
+    "self": { "href": "http://localhost:8080/mediaContents/photo123" },
+    "mediaContent": { "href": "http://localhost:8080/mediaContents/photo123" }
+  }
+}
+```
+
+---
+
+### Update a media content item
+
+```
+PUT /mediaContents/{url}
+```
+
+Full replacement of the media content resource.
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT http://localhost:8080/mediaContents/file789 \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{
+    "url": "file789",
+    "type": "pdf"
+  }'
+```
+
+</CodeGroup>
+
+You can also partially update with `PATCH`:
+
+```
+PATCH /mediaContents/{url}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X PATCH http://localhost:8080/mediaContents/file789 \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{"type": "pdf"}'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a media content item
+
+```
+DELETE /mediaContents/{url}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE http://localhost:8080/mediaContents/old101 \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+## Search endpoints
+
+Search methods are exposed at `/mediaContents/search`.
+
+### Find by type
+
+```
+GET /mediaContents/search/findByType?type={type}
+```
+
+Returns all media content items with the specified type.
+
+<ParamField query="type" type="string" required>
+  The exact media type to filter by (e.g. `"image"`, `"video"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/mediaContents/search/findByType?type=image"
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "_embedded": {
+    "mediaContents": [
+      {
+        "url": "photo123",
+        "type": "image",
+        "edition": null
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Find by edition
+
+```
+GET /mediaContents/search/findByEdition?edition={editionUri}
+```
+
+Returns all media content items belonging to a specific edition.
+
+<ParamField query="edition" type="string" required>
+  URI of the edition to filter by (e.g. `"/editions/1"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/mediaContents/search/findByEdition?edition=/editions/1"
+```
+
+</CodeGroup>
+
+---
+
+## Validation rules
+
+- `url` must not be blank. It is the resource identifier and must be unique.
+- `type` must not be blank.
+- Authentication is required to create, update, or delete media content.

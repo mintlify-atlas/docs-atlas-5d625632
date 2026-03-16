@@ -1,0 +1,207 @@
+---
+title: 'Project rooms'
+description: 'Manage project rooms and assign judges as managers or panelists.'
+---
+
+A project room hosts the project judging sessions for a competition. Each room has one optional **manager** (a judge with a supervisory role) and up to **3 panelists** (judges who evaluate projects).
+
+## ProjectRoom object
+
+<ResponseField name="roomNumber" type="string">
+  String identifier for the room (e.g. `"ROOM_1"`). Acts as the primary key.
+</ResponseField>
+
+<ResponseField name="managedByJudge" type="object">
+  The judge assigned as room manager. `null` if no manager has been assigned yet.
+</ResponseField>
+
+<ResponseField name="panelists" type="array">
+  List of judges assigned as panelists. Maximum of **3 panelists** per room.
+</ResponseField>
+
+---
+
+## CRUD endpoints
+
+These endpoints are exposed automatically by Spring Data REST at `/projectRooms`.
+
+### List all rooms
+
+```
+GET /projectRooms
+```
+
+<CodeGroup>
+
+```bash List project rooms
+curl -X GET http://localhost:8080/projectRooms
+```
+
+</CodeGroup>
+
+---
+
+### Get a room
+
+```
+GET /projectRooms/{roomNumber}
+```
+
+<ParamField path="roomNumber" type="string" required>
+  The string identifier of the project room.
+</ParamField>
+
+<CodeGroup>
+
+```bash Get project room
+curl -X GET http://localhost:8080/projectRooms/ROOM_1
+```
+
+</CodeGroup>
+
+---
+
+### Create a room
+
+```
+POST /projectRooms
+```
+
+Requires authentication.
+
+<CodeGroup>
+
+```bash Create a project room
+curl -X POST http://localhost:8080/projectRooms \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"roomNumber": "ROOM_1"}'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a room
+
+```
+DELETE /projectRooms/{roomNumber}
+```
+
+Requires authentication.
+
+<CodeGroup>
+
+```bash Delete a project room
+curl -X DELETE http://localhost:8080/projectRooms/ROOM_1 \
+  -u demo:password
+```
+
+</CodeGroup>
+
+---
+
+## Assign a judge
+
+```
+POST /project-rooms/assign-judge
+```
+
+Assigns a judge to a project room either as a **manager** or as a **panelist**. The operation is performed under a serializable transaction to prevent race conditions.
+
+<Note>
+  - A room can have at most **1 manager**.
+  - A room can have at most **3 panelists**.
+  - A judge can only be assigned once per room (either as manager or panelist, not both).
+</Note>
+
+### Request body
+
+<ParamField body="roomId" type="string" required>
+  The string identifier of the project room.
+</ParamField>
+
+<ParamField body="judgeId" type="string" required>
+  The numeric judge ID, supplied as a string (e.g. `"10"`). Must be parseable as a `Long`.
+</ParamField>
+
+<ParamField body="isManager" type="boolean" required>
+  When `true`, assigns the judge as the room manager. When `false`, assigns the judge as a panelist.
+</ParamField>
+
+### Response (200 OK)
+
+<ResponseField name="roomId" type="string">
+  The room identifier that was updated.
+</ResponseField>
+
+<ResponseField name="judgeId" type="string">
+  The judge identifier that was assigned.
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  The role assigned to the judge. Either `"MANAGER"` or `"PANELIST"`.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Always `"ASSIGNED"` on success.
+</ResponseField>
+
+### Error codes
+
+| HTTP status | Error code | Description |
+|---|---|---|
+| `400` | `INVALID_JUDGE_ID_FORMAT` | `judgeId` cannot be parsed as a numeric ID. |
+| `400` | `INVALID_ASSIGN_JUDGE_REQUEST` | Request body is missing or malformed JSON. |
+| `404` | `ROOM_NOT_FOUND` | No room exists with the given `roomId`. |
+| `404` | `JUDGE_NOT_FOUND` | No judge exists with the given `judgeId`. |
+| `409` | `ROOM_ALREADY_HAS_MANAGER` | The room already has a manager and `isManager` is `true`. |
+| `409` | `MAX_PANELISTS_REACHED` | The room already has 3 panelists and `isManager` is `false`. |
+| `409` | `JUDGE_ALREADY_ASSIGNED` | The judge is already assigned to this room in any role. |
+
+<Warning>
+  Error responses have the shape `{ "error": "<ERROR_CODE>", "message": "...", "path": "..." }`.
+</Warning>
+
+### Examples
+
+<CodeGroup>
+
+```bash Assign manager
+curl -X POST http://localhost:8080/project-rooms/assign-judge \
+  -H "Content-Type: application/json" \
+  -d '{"roomId": "ROOM_1", "judgeId": "10", "isManager": true}'
+```
+
+```bash Assign panelist
+curl -X POST http://localhost:8080/project-rooms/assign-judge \
+  -H "Content-Type: application/json" \
+  -d '{"roomId": "ROOM_2", "judgeId": "20", "isManager": false}'
+```
+
+```json 200 OK response
+{
+  "roomId": "ROOM_1",
+  "judgeId": "10",
+  "role": "MANAGER",
+  "status": "ASSIGNED"
+}
+```
+
+```json 404 error response
+{
+  "error": "ROOM_NOT_FOUND",
+  "message": "Room not found",
+  "path": "/project-rooms/assign-judge"
+}
+```
+
+```json 409 error response
+{
+  "error": "ROOM_ALREADY_HAS_MANAGER",
+  "message": "This room already has a manager assigned",
+  "path": "/project-rooms/assign-judge"
+}
+```
+
+</CodeGroup>

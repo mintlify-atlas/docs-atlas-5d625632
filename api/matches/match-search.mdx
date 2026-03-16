@@ -1,0 +1,192 @@
+---
+title: 'Match search'
+description: 'Filter and search matches by time range, table, round, or team.'
+keywords: ['match search', 'filter matches', 'find by team', 'pagination', 'fll']
+---
+
+Two endpoints are available for querying matches: a paginated filter endpoint that accepts time, table, and round criteria, and a team-scoped lookup that returns all matches a specific team is involved in.
+
+---
+
+## GET /matches/filter
+
+Return a paginated list of matches that match the supplied filters. All parameters are optional; omitting them returns all matches.
+
+### Query parameters
+
+<ParamField query="startFrom" type="string (ISO time)">
+  Only include matches that start at or after this time (e.g. `10:00:00`).
+</ParamField>
+
+<ParamField query="endTo" type="string (ISO time)">
+  Only include matches that end at or before this time (e.g. `12:00:00`).
+</ParamField>
+
+<ParamField query="tableId" type="string">
+  Filter to matches assigned to the competition table with this identifier (e.g. `Table-01`).
+</ParamField>
+
+<ParamField query="roundId" type="long">
+  Filter to matches belonging to the round with this ID.
+</ParamField>
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page index.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of items per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort expression (e.g. `startTime,asc`). Defaults to `startTime,asc` then `id,asc` when no sort is specified.
+</ParamField>
+
+### Response (200)
+
+<ResponseField name="page" type="integer">
+  The current zero-based page number.
+</ResponseField>
+
+<ResponseField name="size" type="integer">
+  The number of items in this page.
+</ResponseField>
+
+<ResponseField name="totalElements" type="long">
+  The total number of matches matching the filters.
+</ResponseField>
+
+<ResponseField name="items" type="object[]">
+  The matches on the current page.
+
+  <Expandable title="item fields">
+    <ResponseField name="matchId" type="string">
+      The match ID.
+    </ResponseField>
+    <ResponseField name="startTime" type="string (ISO time)">
+      The match start time.
+    </ResponseField>
+    <ResponseField name="endTime" type="string (ISO time)">
+      The match end time.
+    </ResponseField>
+    <ResponseField name="tableId" type="string">
+      The identifier of the competition table.
+    </ResponseField>
+    <ResponseField name="roundId" type="long">
+      The ID of the round the match belongs to.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error responses
+
+| Status | Error code | Description |
+|--------|------------|-------------|
+| `422` | `INVALID_TIME_FILTER_RANGE` | `startFrom` is after `endTo`. |
+
+<CodeGroup>
+
+```bash Filter by time range
+curl --request GET \
+  --url 'http://localhost:8080/matches/filter?startFrom=10:00:00&endTo=12:00:00'
+```
+
+```bash Filter by table and round
+curl --request GET \
+  --url 'http://localhost:8080/matches/filter?tableId=Table-01&roundId=1'
+```
+
+```bash Combined filters with pagination
+curl --request GET \
+  --url 'http://localhost:8080/matches/filter?tableId=Table-01&startFrom=10:00:00&endTo=12:00:00&page=0&size=10&sort=startTime,asc'
+```
+
+</CodeGroup>
+
+```json Response (200)
+{
+  "page": 0,
+  "size": 10,
+  "totalElements": 2,
+  "items": [
+    {
+      "matchId": "1",
+      "startTime": "10:00:00",
+      "endTime": "11:00:00",
+      "tableId": "Table-01",
+      "roundId": 1
+    },
+    {
+      "matchId": "2",
+      "startTime": "11:00:00",
+      "endTime": "12:00:00",
+      "tableId": "Table-01",
+      "roundId": 1
+    }
+  ]
+}
+```
+
+---
+
+## GET /matches/search/findByTeam
+
+Return all matches in which the specified team participates, as either team A or team B.
+
+### Query parameters
+
+<ParamField query="team" type="string" required>
+  The URI of the team resource (e.g. `/teams/LegoStars`). The team name is extracted from the last path segment.
+</ParamField>
+
+### Response (200)
+
+The response uses the HAL `_embedded` envelope.
+
+<ResponseField name="_embedded.matches" type="object[]">
+  Array of match items. Each item has the same fields as a `MatchSearchItemResponse`:
+  `matchId`, `startTime`, `endTime`, `tableId`, `roundId`.
+</ResponseField>
+
+### Error responses
+
+| Status | Error code | Description |
+|--------|------------|-------------|
+| `404` | `TEAM_NOT_FOUND` | No team exists with the given name extracted from the URI. |
+
+<CodeGroup>
+
+```bash Find matches for a team
+curl --request GET \
+  --url 'http://localhost:8080/matches/search/findByTeam?team=/teams/LegoStars'
+```
+
+```bash URL-encoded form
+curl --request GET \
+  --url 'http://localhost:8080/matches/search/findByTeam?team=%2Fteams%2FLegoStars'
+```
+
+</CodeGroup>
+
+```json Response (200)
+{
+  "_embedded": {
+    "matches": [
+      {
+        "matchId": "1",
+        "startTime": "10:00:00",
+        "endTime": "11:00:00",
+        "tableId": "Table-01",
+        "roundId": 1
+      }
+    ]
+  }
+}
+```
+
+```json Response (404)
+{
+  "error": "TEAM_NOT_FOUND",
+  "message": "The referenced team does not exist"
+}
+```

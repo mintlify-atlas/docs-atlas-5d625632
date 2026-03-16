@@ -1,0 +1,147 @@
+---
+title: "Edition lifecycle"
+description: "Transition an edition through its DRAFT → OPEN → CLOSED state machine using PATCH /editions/{editionId}/state."
+---
+
+Every edition follows a linear three-state lifecycle:
+
+```
+DRAFT  →  OPEN  →  CLOSED
+```
+
+- **DRAFT** — default state after creation. Team registration is not allowed.
+- **OPEN** — team registration is open. Transitions to CLOSED.
+- **CLOSED** — final state. No further transitions are allowed.
+
+<Warning>
+  Transitions are one-way and cannot be reversed. A CLOSED edition cannot be reopened.
+</Warning>
+
+## Transition edition state
+
+`PATCH /editions/{editionId}/state`
+
+Transitions the edition to a new lifecycle state. **Authentication required.**
+
+### Path parameters
+
+<ParamField path="editionId" type="integer" required>
+  The numeric ID of the edition to transition.
+</ParamField>
+
+### Request body
+
+<ParamField body="state" type="string" required>
+  The target state. Must be one of: `OPEN`, `CLOSED`.
+
+  Valid transitions:
+  - `DRAFT` → `OPEN`
+  - `OPEN` → `CLOSED`
+</ParamField>
+
+### Response — 200 OK
+
+<ResponseField name="editionId" type="integer" required>
+  The ID of the edition that was transitioned.
+</ResponseField>
+
+<ResponseField name="previousState" type="string" required>
+  The state the edition was in before the transition.
+</ResponseField>
+
+<ResponseField name="newState" type="string" required>
+  The state the edition transitioned into.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"UPDATED"` on success.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+```bash Open an edition
+curl -X PATCH http://localhost:8080/editions/1/state \
+  -u admin:password \
+  -H "Content-Type: application/json" \
+  -d '{"state": "OPEN"}'
+```
+
+```bash Close an edition
+curl -X PATCH http://localhost:8080/editions/1/state \
+  -u admin:password \
+  -H "Content-Type: application/json" \
+  -d '{"state": "CLOSED"}'
+```
+</CodeGroup>
+
+```json Success response — 200 OK
+{
+  "editionId": 1,
+  "previousState": "DRAFT",
+  "newState": "OPEN",
+  "status": "UPDATED"
+}
+```
+
+## Error cases
+
+### Missing or empty body — 400 Bad Request
+
+Returned when the request body is absent or has no parseable content.
+
+```json
+{
+  "error": "INVALID_EDITION_STATE_REQUEST",
+  "message": "Request body is required",
+  "timestamp": "2025-03-16T10:00:00.000Z",
+  "path": "/editions/1/state"
+}
+```
+
+### Invalid state value — 400 Bad Request
+
+Returned when the `state` field contains a value that is not a valid `EditionState` enum member.
+
+```json
+{
+  "error": "INVALID_EDITION_STATE_REQUEST",
+  "message": "Invalid state value. Allowed values: [DRAFT, OPEN, CLOSED]",
+  "timestamp": "2025-03-16T10:00:00.000Z",
+  "path": "/editions/1/state"
+}
+```
+
+### Edition not found — 404 Not Found
+
+```json
+{
+  "error": "EDITION_NOT_FOUND",
+  "message": "Edition with id 99 not found",
+  "timestamp": "2025-03-16T10:00:00.000Z",
+  "path": "/editions/99/state"
+}
+```
+
+### Invalid transition — 422 Unprocessable Entity
+
+Returned when the requested transition is not allowed from the edition's current state (e.g. DRAFT → CLOSED, or any transition from CLOSED).
+
+```json
+{
+  "error": "INVALID_EDITION_STATE_TRANSITION",
+  "message": "Invalid transition from DRAFT to CLOSED",
+  "timestamp": "2025-03-16T10:00:00.000Z",
+  "path": "/editions/1/state"
+}
+```
+
+## State transition table
+
+| Current state | Allowed target | Result |
+|---|---|---|
+| `DRAFT` | `OPEN` | Success |
+| `DRAFT` | `CLOSED` | `INVALID_EDITION_STATE_TRANSITION` |
+| `OPEN` | `CLOSED` | Success |
+| `OPEN` | `DRAFT` | `INVALID_EDITION_STATE_TRANSITION` |
+| `CLOSED` | any | `INVALID_EDITION_STATE_TRANSITION` |

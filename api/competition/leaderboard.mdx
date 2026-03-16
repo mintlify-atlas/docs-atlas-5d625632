@@ -1,0 +1,162 @@
+---
+title: 'Leaderboard'
+description: 'Retrieve a paginated, sorted leaderboard for a competition edition.'
+---
+
+The leaderboard aggregates match results for an edition and ranks teams. Sort order is **fixed**: `totalScore DESC`, `matchesPlayed DESC`, `teamName ASC`. It cannot be changed via query parameters.
+
+---
+
+## Get edition leaderboard
+
+```
+GET /leaderboards/editions/{editionId}
+```
+
+Returns a paginated list of teams ranked by their performance in the specified edition.
+
+### Path parameters
+
+<ParamField path="editionId" type="integer" required>
+  The ID of the edition whose leaderboard you want to retrieve.
+</ParamField>
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page index. Must be `>= 0`.
+</ParamField>
+
+<ParamField query="size" type="integer" default="10">
+  Number of items per page. Must be between `1` and `100` (inclusive).
+</ParamField>
+
+<Note>
+  Ranking positions are computed globally across all pages. For example, on page `1` with `size=1` the single returned item will have `position=2`.
+</Note>
+
+### Response (200 OK)
+
+<ResponseField name="editionId" type="integer">
+  The edition ID that was queried.
+</ResponseField>
+
+<ResponseField name="page" type="integer">
+  The current page index (0-based).
+</ResponseField>
+
+<ResponseField name="size" type="integer">
+  The page size used for this response.
+</ResponseField>
+
+<ResponseField name="totalElements" type="integer">
+  Total number of teams with results in this edition across all pages.
+</ResponseField>
+
+<ResponseField name="items" type="array">
+  Ordered list of leaderboard entries for this page.
+
+  <Expandable title="Item properties">
+    <ResponseField name="position" type="integer">
+      Global rank position (1-based). Computed as `page * size + index + 1`.
+    </ResponseField>
+    <ResponseField name="teamId" type="string">
+      Unique identifier for the team.
+    </ResponseField>
+    <ResponseField name="teamName" type="string">
+      Display name of the team.
+    </ResponseField>
+    <ResponseField name="totalScore" type="integer">
+      Sum of scores from all completed matches in this edition.
+    </ResponseField>
+    <ResponseField name="matchesPlayed" type="integer">
+      Number of matches the team has played in this edition.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Sort order
+
+Results are always sorted by the following fixed criteria, in order:
+
+1. `totalScore` descending — highest score first
+2. `matchesPlayed` descending — ties broken by most matches played
+3. `teamName` ascending — remaining ties broken alphabetically
+
+### Error responses
+
+| HTTP status | Description |
+|---|---|
+| `400` | Invalid pagination parameters (`page < 0` or `size` outside `1–100`). |
+| `404` | No edition exists with the given `editionId`. |
+
+### Examples
+
+<CodeGroup>
+
+```bash First page
+curl -X GET "http://localhost:8080/leaderboards/editions/1?page=0&size=10"
+```
+
+```bash Second page with size 1
+curl -X GET "http://localhost:8080/leaderboards/editions/1?page=1&size=1"
+```
+
+```json 200 OK (page 0, size 10)
+{
+  "editionId": 1,
+  "page": 0,
+  "size": 10,
+  "totalElements": 3,
+  "items": [
+    {
+      "position": 1,
+      "teamId": "team-a",
+      "teamName": "TeamA",
+      "totalScore": 300,
+      "matchesPlayed": 3
+    },
+    {
+      "position": 2,
+      "teamId": "team-b",
+      "teamName": "TeamB",
+      "totalScore": 250,
+      "matchesPlayed": 3
+    },
+    {
+      "position": 3,
+      "teamId": "team-c",
+      "teamName": "TeamC",
+      "totalScore": 200,
+      "matchesPlayed": 2
+    }
+  ]
+}
+```
+
+```json 200 OK (page 1, size 1)
+{
+  "editionId": 1,
+  "page": 1,
+  "size": 1,
+  "totalElements": 3,
+  "items": [
+    {
+      "position": 2,
+      "teamId": "team-b",
+      "teamName": "TeamB",
+      "totalScore": 250,
+      "matchesPlayed": 3
+    }
+  ]
+}
+```
+
+```json 404 not found
+{
+  "status": 404,
+  "message": "Edition not found: 99"
+}
+```
+
+</CodeGroup>

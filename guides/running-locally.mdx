@@ -1,0 +1,85 @@
+---
+title: 'Running locally'
+description: 'Set up and run the First Lego League backend on your machine for local development.'
+keywords: ['local development', 'spring boot', 'maven', 'setup']
+---
+
+## Prerequisites
+
+Before you start, make sure you have the following installed:
+
+- **Java 21** — required runtime and compile target
+- **Maven 3.9** — build and dependency management
+- **Docker** (optional) — only needed if you want to run via container locally
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/UdL-EPS-SoftArch-Igualada/spring-template.git
+    cd spring-template
+    ```
+  </Step>
+
+  <Step title="Build the project">
+    Compile sources and package the application JAR:
+
+    ```bash
+    mvn package
+    ```
+  </Step>
+
+  <Step title="Run the application">
+    Start the Spring Boot dev server:
+
+    ```bash
+    mvn spring-boot:run
+    ```
+
+    The API will be available at `http://localhost:8080`.
+  </Step>
+</Steps>
+
+## Running with an IDE
+
+You can also start the application directly from your IDE by executing the `main` method in `MainApplication`.
+
+If you are using **VSCode**, press `F5` from anywhere in the project to start a debug session.
+
+## Developer tools
+
+Once the application is running, the following tools are available:
+
+| Tool | URL |
+|---|---|
+| HAL Explorer | `http://localhost:8080` |
+| Swagger UI | `http://localhost:8080/swagger-ui.html` |
+
+<Note>
+  The H2 in-memory database console is **disabled by default** (`spring.h2.console.enabled: false` in `application.yml`). Enable it manually during development if needed, then access it at `http://localhost:8080/h2-console`.
+</Note>
+
+## Running tests
+
+```bash
+mvn test
+```
+
+Tests use a separate `application-test.yml` profile with DDL auto-generation enabled and security disabled.
+
+## Default configuration
+
+The following values are set in `application.yml` and apply when running locally without a profile override:
+
+```yaml
+default-password: password
+allowed-origins: http://localhost:3000
+```
+
+- `default-password` — used to seed default user accounts
+- `allowed-origins` — the frontend origin allowed by CORS
+
+<Tip>
+  To override any value at runtime, pass it as a system property: `mvn spring-boot:run -Ddefault-password=mypassword`
+</Tip>

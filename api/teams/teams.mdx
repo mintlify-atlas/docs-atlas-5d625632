@@ -1,0 +1,238 @@
+---
+title: 'Teams'
+description: 'Manage FLL competition teams. Teams are identified by their name (string ID) and may belong to multiple editions.'
+keywords: ['teams', 'fll', 'crud', 'rest']
+---
+
+Teams are the core competing unit in FLL. Each team is uniquely identified by its **name** (used as the string path variable). Teams are registered per edition, may have up to 10 members, up to 2 coaches, and up to 2 assigned floaters.
+
+<Note>
+  A maximum of **18 teams** can be registered per edition.
+</Note>
+
+## Team entity
+
+<ResponseField name="name" type="string" required>
+  Unique team name. Used as the resource ID. Must be 3–50 characters.
+</ResponseField>
+
+<ResponseField name="city" type="string" required>
+  City where the team is based. Maximum 100 characters.
+</ResponseField>
+
+<ResponseField name="foundationYear" type="integer" required>
+  Year the team was founded. Must be 1998 or later.
+</ResponseField>
+
+<ResponseField name="educationalCenter" type="string">
+  Name of the educational center the team belongs to. Maximum 100 characters.
+</ResponseField>
+
+<ResponseField name="category" type="string" required>
+  Competition category (e.g. `"Junior"`, `"Explore"`, `"Challenge"`).
+</ResponseField>
+
+<ResponseField name="inscriptionDate" type="string">
+  ISO-8601 date when the team registered (`YYYY-MM-DD`). Set automatically on creation if omitted.
+</ResponseField>
+
+<ResponseField name="members" type="object[]">
+  <Expandable title="TeamMember (max 10)">
+    <ResponseField name="id" type="integer">Member ID.</ResponseField>
+    <ResponseField name="name" type="string">Member name.</ResponseField>
+    <ResponseField name="role" type="string">Member role within the team.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="trainedBy" type="object[]">
+  Set of Coach resources assigned to this team. Maximum 2.
+</ResponseField>
+
+<ResponseField name="floaters" type="object[]">
+  Set of Floater volunteers assisting this team. Maximum 2.
+</ResponseField>
+
+<ResponseField name="registeredEditions" type="integer[]">
+  IDs of the editions this team is registered in.
+</ResponseField>
+
+---
+
+## List teams
+
+```
+GET /teams
+```
+
+Returns a paginated list of all teams. Public endpoint.
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page number.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of results per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort field and direction, e.g. `name,asc`.
+</ParamField>
+
+<CodeGroup>
+
+```bash List all teams
+curl -X GET http://localhost:8080/teams
+```
+
+```bash Paginated
+curl -X GET "http://localhost:8080/teams?page=0&size=10&sort=name,asc"
+```
+
+</CodeGroup>
+
+### Search endpoints
+
+Spring Data REST exposes the repository's `findBy*` methods under `/teams/search`.
+
+| Endpoint | Parameter | Description |
+|---|---|---|
+| `GET /teams/search/findByCity` | `city` | Teams from a specific city |
+| `GET /teams/search/findByCategory` | `category` | Teams in a specific category |
+| `GET /teams/search/findByEducationalCenter` | `educationalCenter` | Teams from an educational center |
+| `GET /teams/search/findByFoundationYearGreaterThan` | `year` | Teams founded after a given year |
+| `GET /teams/search/findByMembersRole` | `role` | Teams that have a member with a specific role |
+| `GET /teams/search/findByName` | `name` | Exact team name lookup |
+
+```bash Search by city
+curl -X GET "http://localhost:8080/teams/search/findByCity?city=Barcelona"
+```
+
+---
+
+## Get a team
+
+```
+GET /teams/{name}
+```
+
+<ParamField path="name" type="string" required>
+  The team name (string ID).
+</ParamField>
+
+```bash Get team by name
+curl -X GET http://localhost:8080/teams/LegoStars
+```
+
+---
+
+## Create a team
+
+```
+POST /teams
+```
+
+Requires authentication.
+
+### Request body
+
+<ParamField body="name" type="string" required>
+  Unique team name. 3–50 characters.
+</ParamField>
+
+<ParamField body="city" type="string" required>
+  City name. Maximum 100 characters.
+</ParamField>
+
+<ParamField body="foundationYear" type="integer" required>
+  Year founded, 1998 or later.
+</ParamField>
+
+<ParamField body="category" type="string" required>
+  Competition category.
+</ParamField>
+
+<ParamField body="educationalCenter" type="string">
+  Educational center name. Maximum 100 characters.
+</ParamField>
+
+<ParamField body="inscriptionDate" type="string">
+  ISO-8601 inscription date (`YYYY-MM-DD`). Defaults to today if omitted.
+</ParamField>
+
+```bash Create a team
+curl -X POST http://localhost:8080/teams \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "LegoStars",
+    "city": "Barcelona",
+    "foundationYear": 2010,
+    "category": "Challenge",
+    "educationalCenter": "Institut Igualada"
+  }'
+```
+
+Returns `201 Created` with a `Location` header pointing to the new resource.
+
+---
+
+## Update a team
+
+<CodeGroup>
+
+```bash Full update (PUT)
+curl -X PUT http://localhost:8080/teams/LegoStars \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "LegoStars",
+    "city": "Lleida",
+    "foundationYear": 2010,
+    "category": "Challenge"
+  }'
+```
+
+```bash Partial update (PATCH)
+curl -X PATCH http://localhost:8080/teams/LegoStars \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"city": "Girona"}'
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Delete a team
+
+```
+DELETE /teams/{name}
+```
+
+Requires authentication. Deleting a team cascades to all its `TeamMember` records.
+
+```bash Delete a team
+curl -X DELETE http://localhost:8080/teams/LegoStars \
+  -u admin:admin
+```
+
+Returns `204 No Content` on success.
+
+---
+
+## Validation rules
+
+| Field | Rule |
+|---|---|
+| `name` | Required, 3–50 characters |
+| `city` | Required, max 100 characters |
+| `foundationYear` | Required, ≥ 1998 |
+| `category` | Required |
+| `inscriptionDate` | Must be today or in the past |
+| `members` | Maximum 10 per team |
+| `trainedBy` | Maximum 2 coaches per team |
+| `floaters` | Maximum 2 floaters per team |

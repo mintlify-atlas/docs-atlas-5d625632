@@ -1,0 +1,174 @@
+---
+title: 'Edition lifecycle'
+description: 'Understand the edition state machine and how to transition an edition between DRAFT, OPEN, and CLOSED states.'
+keywords: ['edition', 'lifecycle', 'state machine', 'DRAFT', 'OPEN', 'CLOSED']
+---
+
+## Overview
+
+Every edition moves through a linear state machine. States control which operations are permitted and cannot be skipped or reversed.
+
+```
+DRAFT ──► OPEN ──► CLOSED
+```
+
+| Transition | Allowed |
+|---|---|
+| `DRAFT` → `OPEN` | Yes |
+| `OPEN` → `CLOSED` | Yes |
+| `CLOSED` → anything | No |
+| Any backward transition | No |
+
+<Note>
+  An edition with no explicit state set is treated as `DRAFT` by the system.
+</Note>
+
+## State reference
+
+### DRAFT
+
+The initial state when an edition is created. The edition is being configured and is not yet accepting participants.
+
+- Team registration is **not allowed**.
+- Can transition to `OPEN`.
+
+### OPEN
+
+The edition is active and accepting registrations.
+
+- Team registration is **allowed**.
+- Can transition to `CLOSED`.
+
+### CLOSED
+
+The edition has ended. No further transitions or registrations are possible.
+
+- Team registration is **not allowed**.
+- No further transitions allowed.
+
+## Transitioning state
+
+State transitions are performed via a `PATCH` request. Authentication is required.
+
+```
+PATCH /editions/{editionId}/state
+```
+
+**Request body:**
+
+```json
+{
+  "state": "OPEN"
+}
+```
+
+**Response body (200 OK):**
+
+```json
+{
+  "editionId": 1,
+  "previousState": "DRAFT",
+  "newState": "OPEN",
+  "status": "UPDATED"
+}
+```
+
+## curl examples
+
+### Transition DRAFT → OPEN
+
+```bash
+curl -X PATCH http://localhost:8080/editions/1/state \
+  -u user:password \
+  -H "Content-Type: application/json" \
+  -d '{"state": "OPEN"}'
+```
+
+### Transition OPEN → CLOSED
+
+```bash
+curl -X PATCH http://localhost:8080/editions/1/state \
+  -u user:password \
+  -H "Content-Type: application/json" \
+  -d '{"state": "CLOSED"}'
+```
+
+## Error scenarios
+
+### Invalid state transition (409)
+
+Returned when the requested transition is not permitted by the state machine (e.g. attempting to re-open a closed edition).
+
+```json
+{
+  "error": "INVALID_EDITION_STATE_TRANSITION",
+  "message": "Invalid transition from CLOSED to OPEN"
+}
+```
+
+### Edition not found (404)
+
+Returned when the `editionId` path parameter does not match any existing edition.
+
+```json
+{
+  "error": "EDITION_NOT_FOUND",
+  "message": "Edition with id 9999 not found"
+}
+```
+
+### Invalid or missing request body (400)
+
+Returned when the request body is absent or contains an unrecognised state value.
+
+```json
+{
+  "error": "INVALID_EDITION_STATE_REQUEST",
+  "message": "Invalid state value. Allowed values: [DRAFT, OPEN, CLOSED]"
+}
+```
+
+## Typical edition workflow
+
+<Steps>
+  <Step title="Create the edition">
+    Create a new edition via `POST /editions`. It starts in the `DRAFT` state.
+
+    ```bash
+    curl -X POST http://localhost:8080/editions \
+      -u user:password \
+      -H "Content-Type: application/json" \
+      -d '{"year": 2025, "venue": "Igualada", "description": "FLL 2025"}'
+    ```
+  </Step>
+
+  <Step title="Configure the edition">
+    While in `DRAFT`, set up competition tables, project rooms, and assign judges. Team registration is not yet open.
+  </Step>
+
+  <Step title="Open the edition">
+    Transition to `OPEN` to allow team registration.
+
+    ```bash
+    curl -X PATCH http://localhost:8080/editions/1/state \
+      -u user:password \
+      -H "Content-Type: application/json" \
+      -d '{"state": "OPEN"}'
+    ```
+  </Step>
+
+  <Step title="Register teams">
+    With the edition `OPEN`, teams can now be registered. Attempting team registration in any other state returns an `EDITION_OPERATION_NOT_ALLOWED` error.
+  </Step>
+
+  <Step title="Close the edition">
+    Once the competition is complete, transition to `CLOSED`. This is a terminal state — it cannot be undone.
+
+    ```bash
+    curl -X PATCH http://localhost:8080/editions/1/state \
+      -u user:password \
+      -H "Content-Type: application/json" \
+      -d '{"state": "CLOSED"}'
+    ```
+  </Step>
+</Steps>

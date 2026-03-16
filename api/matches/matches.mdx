@@ -1,0 +1,167 @@
+---
+title: 'Matches'
+description: 'Manage match entities, including CRUD operations and table assignment.'
+keywords: ['matches', 'match management', 'table assignment', 'fll', 'spring data rest']
+---
+
+## Match entity
+
+A `Match` represents a scheduled competition between two teams at a specific time on a competition table.
+
+### Fields
+
+<ResponseField name="id" type="long">
+  Auto-generated unique identifier for the match.
+</ResponseField>
+
+<ResponseField name="startTime" type="string (ISO time)">
+  The scheduled start time of the match (e.g. `10:00:00`).
+</ResponseField>
+
+<ResponseField name="endTime" type="string (ISO time)">
+  The scheduled end time of the match (e.g. `11:00:00`).
+</ResponseField>
+
+<ResponseField name="state" type="string" default="SCHEDULED">
+  Current lifecycle state of the match. See [MatchState](#matchstate) below.
+</ResponseField>
+
+<ResponseField name="teamA" type="string (URI)">
+  URI reference to team A (e.g. `/teams/teamName`).
+</ResponseField>
+
+<ResponseField name="teamB" type="string (URI)">
+  URI reference to team B (e.g. `/teams/teamName`).
+</ResponseField>
+
+<ResponseField name="round" type="object">
+  The round this match belongs to.
+</ResponseField>
+
+<ResponseField name="competitionTable" type="object">
+  The competition table where this match takes place.
+</ResponseField>
+
+<ResponseField name="referee" type="object">
+  The referee assigned to this match, if any.
+</ResponseField>
+
+### MatchState
+
+| Value | Description |
+|-------|-------------|
+| `SCHEDULED` | Match has been created and scheduled. This is the default state. |
+| `IN_PROGRESS` | Match is currently being played. |
+| `FINISHED` | Match has completed. A result can be registered once the match is finished. |
+
+---
+
+## CRUD endpoints
+
+The `/matches` resource is exposed via Spring Data REST and supports standard CRUD operations.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/matches` | List all matches |
+| `POST` | `/matches` | Create a new match |
+| `GET` | `/matches/{id}` | Get a match by ID |
+| `PUT` | `/matches/{id}` | Replace a match |
+| `PATCH` | `/matches/{id}` | Partially update a match |
+| `DELETE` | `/matches/{id}` | Delete a match |
+
+<Note>
+  Creating a match via `POST /matches` triggers schedule validation. See [Match scheduling](/api/matches/match-scheduling) for the constraints that apply.
+</Note>
+
+<CodeGroup>
+
+```bash Create a match
+curl --request POST \
+  --url http://localhost:8080/matches \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "startTime": "10:00:00",
+    "endTime": "11:00:00",
+    "round": "/rounds/1",
+    "competitionTable": "/competitionTables/Table-01"
+  }'
+```
+
+```bash Get a match
+curl --request GET \
+  --url http://localhost:8080/matches/1
+```
+
+```bash List all matches
+curl --request GET \
+  --url http://localhost:8080/matches
+```
+
+</CodeGroup>
+
+---
+
+## POST /matches/{matchId}/assign-table
+
+Assign or reassign a competition table to a match. This endpoint validates that the new assignment does not create a time overlap on the target table.
+
+**Authentication required.**
+
+### Path parameters
+
+<ParamField path="matchId" type="long" required>
+  The ID of the match to assign a table to.
+</ParamField>
+
+### Request body
+
+<ParamField body="tableIdentifier" type="string" required>
+  The string identifier of the competition table (e.g. `Table-01`).
+</ParamField>
+
+### Response
+
+<ResponseField name="matchId" type="long">
+  The ID of the updated match.
+</ResponseField>
+
+<ResponseField name="tableIdentifier" type="string">
+  The identifier of the table that was assigned.
+</ResponseField>
+
+<ResponseField name="startTime" type="string">
+  The start time of the match, formatted as a string.
+</ResponseField>
+
+<ResponseField name="endTime" type="string">
+  The end time of the match, formatted as a string.
+</ResponseField>
+
+### Error responses
+
+| Status | Description |
+|--------|-------------|
+| `404` | Match or table not found. |
+| `409` | The table already has a match scheduled in the same time window. |
+| `422` | The match itself has an invalid time range (end time before start time). |
+
+<CodeGroup>
+
+```bash Assign a table
+curl --request POST \
+  --url http://localhost:8080/matches/1/assign-table \
+  --header 'Authorization: Basic dXNlcjpwYXNzd29yZA==' \
+  --header 'Content-Type: application/json' \
+  --data '{"tableIdentifier": "Table-01"}'
+```
+
+```json Response (200)
+{
+  "matchId": 1,
+  "tableIdentifier": "Table-01",
+  "startTime": "10:00:00",
+  "endTime": "11:00:00"
+}
+```
+
+</CodeGroup>

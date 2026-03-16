@@ -1,0 +1,157 @@
+---
+title: "Teams & Volunteers"
+description: "Teams compete in a First Lego League edition. Volunteers — Referees, Judges, and Floaters — support the event in distinct roles."
+---
+
+## Teams
+
+A **Team** is a group of participants competing in an Edition. The team's `name` is its primary key — it must be unique across the entire system.
+
+### Team Fields
+
+| Field | Type | Constraints |
+|---|---|---|
+| `name` | `String` (PK) | Required; 3–50 characters |
+| `city` | `String` | Required; max 100 characters |
+| `foundationYear` | `Integer` | Required; must be ≥ 1998 |
+| `educationalCenter` | `String` | Optional; max 100 characters |
+| `category` | `String` | Required, non-blank |
+| `inscriptionDate` | `LocalDate` | Auto-set on creation; must be past or present |
+
+<Note>
+Because `name` is the primary key, team names are immutable after creation.
+</Note>
+
+---
+
+## Team Members
+
+A **TeamMember** represents an individual participant on a team.
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Long` | Auto-generated |
+| `name` | `String` | Required; 2–100 characters |
+| `birthDate` | `LocalDate` | Required; must be in the past |
+| `gender` | `String` | Optional; max 20 characters |
+| `tShirtSize` | `String` | Optional; max 10 characters |
+| `role` | `String` | Required; max 50 characters |
+| `team` | `Team` | Required foreign key |
+
+<Warning>
+A team cannot have more than **10 members**. Attempting to add an eleventh member will throw an error.
+</Warning>
+
+---
+
+## Coaches
+
+A **Coach** is an adult supervisor linked to one or more teams.
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Integer` | Auto-generated |
+| `name` | `String` | Required, non-blank |
+| `emailAddress` | `String` | Required, unique, valid email |
+| `phoneNumber` | `String` | Optional |
+
+### Assignment Rules
+
+Coach assignment is subject to two hard limits enforced in `Team.addCoach()`:
+
+<CardGroup cols={2}>
+  <Card title="Max coaches per team" icon="users">
+    A team can have at most **2 coaches**. Adding a third raises `MAX_COACHES_PER_TEAM_REACHED`.
+  </Card>
+  <Card title="Max teams per coach" icon="user">
+    A coach can train at most **2 teams**. Assigning a coach already training 2 teams raises `MAX_TEAMS_PER_COACH_REACHED`.
+  </Card>
+</CardGroup>
+
+---
+
+## Floaters
+
+A **Floater** is a volunteer (see below) who provides support directly to teams during the event. Teams have a separate many-to-many relationship with floaters.
+
+<Warning>
+A team can have at most **2 floaters** assigned. Attempting to assign a third will raise an error.
+</Warning>
+
+---
+
+## Volunteers
+
+The `Volunteer` entity is the abstract base for all event staff. All volunteer types share these fields:
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Long` | Auto-generated |
+| `name` | `String` | Required, non-blank |
+| `emailAddress` | `String` | Required, unique, valid email |
+| `phoneNumber` | `String` | Required, non-blank |
+| `edition` | `Edition` | Foreign key — the edition this volunteer is assigned to |
+
+Volunteers use **joined-table inheritance** (`InheritanceType.JOINED`). Each subtype has its own table with additional fields.
+
+### Volunteer Hierarchy
+
+```
+Volunteer (abstract base)
+├── Judge
+├── Referee
+└── Floater
+```
+
+---
+
+## Judge
+
+A **Judge** evaluates scientific projects during the competition.
+
+| Additional Field | Type | Notes |
+|---|---|---|
+| `expert` | `boolean` | Whether the judge is a domain expert |
+| `memberOfRoom` | `ProjectRoom` | The project room panel this judge belongs to |
+
+A `ProjectRoom` has a managing judge (`managedByJudge`) and a list of panelist judges.
+
+---
+
+## Referee
+
+A **Referee** supervises matches on a competition table.
+
+| Additional Field | Type | Notes |
+|---|---|---|
+| `expert` | `boolean` | Whether the referee is a senior/expert referee |
+| `supervisesTable` | `CompetitionTable` | The table this referee is assigned to (max 3 referees per table) |
+
+<Note>
+A `CompetitionTable` can have a maximum of **3 referees** assigned to it.
+</Note>
+
+---
+
+## Floater (Volunteer Subtype)
+
+A **Floater** is a student volunteer who assists teams during the event.
+
+| Additional Field | Type | Constraints |
+|---|---|---|
+| `studentCode` | `String` | Required, unique |
+| `assistedTeams` | `Set<Team>` | Teams this floater is assigned to |
+
+<Tip>
+Floaters carry a `studentCode` that uniquely identifies them in the system — this is separate from their `emailAddress`.
+</Tip>
+
+---
+
+## Role Conflict Validation
+
+Since `Judge`, `Referee`, and `Floater` are **separate entity types**, a single person cannot hold two roles in the same edition without creating two separate volunteer records. The email address column has a `unique` constraint on the `volunteers` table, so the same email address cannot be registered as both a Judge and a Referee (or any other combination) within the system.
+
+<Warning>
+A volunteer's `emailAddress` is globally unique across all volunteer roles. You cannot register the same person as both a Judge and a Referee, even in different editions.
+</Warning>

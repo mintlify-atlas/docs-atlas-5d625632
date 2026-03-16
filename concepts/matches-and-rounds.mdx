@@ -1,0 +1,128 @@
+---
+title: "Matches & Rounds"
+description: "Rounds group matches within an edition. Each match pits two teams against each other on a competition table, supervised by a referee."
+---
+
+## Rounds
+
+A **Round** is a logical grouping of matches within an Edition. All matches that take place in the same phase of competition belong to the same Round.
+
+### Round Fields
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Long` | Auto-generated |
+| `number` | `int` | Unique — no two rounds in the system share the same number |
+| `edition` | `Edition` | Foreign key to the owning Edition |
+| `matches` | `List<Match>` | Cascade all; orphan removal enabled |
+
+<Note>
+The `number` field has a `unique` database constraint. Round numbers identify rounds unambiguously across the system.
+</Note>
+
+---
+
+## Matches
+
+A **Match** is a head-to-head contest between two teams (`teamA` and `teamB`) on a specific competition table at a scheduled time.
+
+### Match Fields
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Long` | Auto-generated |
+| `startTime` | `LocalTime` | Time the match begins |
+| `endTime` | `LocalTime` | Time the match ends; must be after `startTime` |
+| `round` | `Round` | The round this match belongs to |
+| `competitionTable` | `CompetitionTable` | The physical table where the match is played |
+| `teamA` | `Team` | First competing team |
+| `teamB` | `Team` | Second competing team |
+| `referee` | `Referee` | The referee assigned to supervise this match |
+| `state` | `MatchState` | Current lifecycle state; defaults to `SCHEDULED` |
+
+---
+
+## Match States
+
+<CardGroup cols={3}>
+  <Card title="SCHEDULED" icon="calendar">
+    The match has been created and is awaiting play. This is the default state for all new matches.
+  </Card>
+  <Card title="IN_PROGRESS" icon="play">
+    The match is currently being played on the table.
+  </Card>
+  <Card title="FINISHED" icon="flag-checkered">
+    The match has concluded. Results can now be recorded.
+  </Card>
+</CardGroup>
+
+<Note>
+A referee can only be assigned to a match that is **not** in `FINISHED` state and that has both `startTime` and `endTime` set.
+</Note>
+
+---
+
+## FLL Uniqueness Constraint
+
+In First Lego League, **no two teams may face each other more than once** across all rounds in an edition. This is a fundamental scheduling rule of the competition format.
+
+The `MatchRepository` provides a `findByTeam` query that returns all matches involving a given team, which is used to enforce this constraint during match creation:
+
+```java
+@Query("""
+    SELECT m FROM Match m
+    WHERE m.teamA = :team OR m.teamB = :team
+    """)
+List<Match> findByTeam(@Param("team") Team team);
+```
+
+<Warning>
+Scheduling the same pair of teams in more than one match across the entire edition violates the FLL uniqueness rule and must be prevented at the application level.
+</Warning>
+
+---
+
+## Competition Tables
+
+A **CompetitionTable** (`id: String`) represents a physical playing surface at the venue. Tables are identified by a string ID (e.g. `"TABLE-A"`, `"TABLE-B"`).
+
+- Each match is assigned to exactly one table.
+- A table can have up to **3 referees** assigned to supervise it.
+- The system prevents **time-slot overlap** on the same table: two matches cannot be scheduled on the same table with overlapping start/end times.
+
+```
+competitionTable.id < newMatchEndTime  AND  competitionTable.endTime > newMatchStartTime
+→ overlap detected → rejected
+```
+
+<Tip>
+Table overlap validation runs automatically via `MatchScheduleValidationService` on every match create and update.
+</Tip>
+
+---
+
+## Referee Assignment
+
+Each match has a single `referee` field. Referees are assigned via the match assignment endpoint.
+
+Constraints enforced during assignment:
+
+1. The match must not already have a referee (`MATCH_ALREADY_HAS_REFEREE`).
+2. The match must not be in `FINISHED` state and must have valid start/end times (`INVALID_MATCH_STATE`).
+3. The volunteer must hold the `Referee` role — assigning a Judge or Floater is rejected (`INVALID_ROLE`).
+4. The referee must not already be assigned to another match with an overlapping time window (`AVAILABILITY_CONFLICT`).
+
+<Steps>
+  <Step title="Create the match">
+    POST a match with `teamA`, `teamB`, `startTime`, `endTime`, `round`, and optionally `competitionTable`.
+  </Step>
+  <Step title="Assign a table">
+    Link the match to a `CompetitionTable`. The system validates there is no time overlap with other matches on that table.
+  </Step>
+  <Step title="Assign a referee">
+    POST to the assignment endpoint with `matchId` and `refereeId`. Availability is checked automatically.
+  </Step>
+  <Step title="Record results">
+    After the match finishes, submit scores for both `teamA` and `teamB` via the score registration endpoint.
+  </Step>
+</Steps>

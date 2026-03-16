@@ -1,0 +1,68 @@
+---
+title: "First Lego League Backend"
+description: "A Spring Boot REST API for managing First Lego League competition logistics — teams, matches, scoring, leaderboards, and volunteer coordination."
+---
+
+## Welcome
+
+The First Lego League (FLL) Backend is a production-ready REST API built with Spring Boot 4 that powers the entire competition management platform for FLL Igualada. It handles everything from team registration and match scheduling to real-time scoring and leaderboard computation.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get the API running locally in under 5 minutes
+  </Card>
+  <Card title="Authentication" icon="lock" href="/authentication">
+    Learn how HTTP Basic authentication works
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Browse all endpoints with request/response schemas
+  </Card>
+  <Card title="Edition Lifecycle" icon="arrow-right-arrow-left" href="/guides/edition-lifecycle">
+    Understand the DRAFT → OPEN → CLOSED state machine
+  </Card>
+</CardGroup>
+
+## Key capabilities
+
+<CardGroup cols={2}>
+  <Card title="Edition management" icon="calendar">
+    Create and manage competition editions with a three-state lifecycle (DRAFT, OPEN, CLOSED). Supports up to 18 teams per edition.
+  </Card>
+  <Card title="Team & volunteer coordination" icon="users">
+    Register teams, assign coaches, and manage volunteer roles (Judges, Referees, Floaters) with automatic conflict validation.
+  </Card>
+  <Card title="Match scheduling" icon="table-columns">
+    Generate rounds and matches while enforcing the FLL constraint that no two teams play each other more than once.
+  </Card>
+  <Card title="Scoring & leaderboard" icon="trophy">
+    Register match scores and automatically recalculate rankings. Query paginated leaderboards sorted by total score.
+  </Card>
+  <Card title="Project rooms" icon="door-open">
+    Assign judges to project evaluation rooms with support for one room manager and multiple panelists.
+  </Card>
+  <Card title="HAL+JSON hypermedia" icon="link">
+    Full Spring Data REST integration with HATEOAS links, HAL Explorer, and OpenAPI/Swagger UI at `/swagger-ui.html`.
+  </Card>
+</CardGroup>
+
+## Tech stack
+
+| Component | Technology |
+|---|---|
+| Framework | Spring Boot 4.0.1 |
+| Language | Java 21 |
+| Data access | Spring Data JPA + PostgreSQL (prod) / H2 (dev) |
+| API style | Spring Data REST + HAL+JSON |
+| Security | Spring Security (HTTP Basic, stateless) |
+| API docs | SpringDoc OpenAPI 3 / Swagger UI |
+| Tests | JUnit 5 + Cucumber BDD |
+| Build | Maven 3.9 |
+| Container | Docker (multi-stage, IBM Semeru JRE 21) |
+
+## Live deployment
+
+The API is deployed to Fly.io and available at `https://spring-template.fly.dev`. The HAL Explorer is accessible at the root path and the Swagger UI at `/swagger-ui.html`.
+
+<Note>
+  The production instance uses PostgreSQL with the `prod` Spring profile active. Local development defaults to an in-memory H2 database.
+</Note>

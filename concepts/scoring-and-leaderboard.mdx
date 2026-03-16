@@ -1,0 +1,169 @@
+---
+title: "Scoring & Leaderboard"
+description: "Match results record scores for each team. Rankings and the leaderboard are derived from cumulative scores across all matches in an edition."
+---
+
+## Match Results
+
+A **MatchResult** records the score a specific team achieved in a specific match. Each match produces **two** `MatchResult` records — one for `teamA` and one for `teamB`.
+
+### MatchResult Fields
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Long` | Auto-generated |
+| `match` | `Match` | Required — the match this result belongs to |
+| `team` | `Team` | Required — the team whose score this records |
+| `score` | `Integer` | Required; must be ≥ 0 |
+
+The combination of `(match_id, team_name)` is **unique**, preventing duplicate results for the same team in the same match.
+
+```java
+@Table(name = "match_result",
+    uniqueConstraints = @UniqueConstraint(columnNames = { "match_id", "team_name" }))
+```
+
+<Warning>
+Scores cannot be negative. A score of `0` is valid and represents a match where the team scored no points.
+</Warning>
+
+---
+
+## Score Registration
+
+Scores are submitted via the score registration endpoint. The payload must include scores for both teams in the match:
+
+```json
+{
+  "matchId": 42,
+  "teamAId": "alpha-team",
+  "teamBId": "beta-team",
+  "teamAScore": 120,
+  "teamBScore": 95
+}
+```
+
+Validation rules:
+- Both `teamAId` and `teamBId` must match the teams actually assigned to the match.
+- `teamAId` and `teamBId` cannot be the same team.
+- Both scores must be ≥ 0.
+- The match must exist.
+
+---
+
+## Rankings
+
+The **Ranking** entity stores the pre-computed standing of each team across all match results in the system.
+
+### Ranking Fields
+
+| Field | Type | Constraints |
+|---|---|---|
+| `id` | `Long` | Auto-generated |
+| `team` | `Team` | Unique — one ranking entry per team |
+| `totalScore` | `Integer` | Sum of all scores; must be ≥ 0 |
+| `position` | `Integer` | 1-based rank position; must be ≥ 1 |
+
+### How Rankings Are Computed
+
+Rankings are recalculated by `RankingService.recalculateRanking()`. The process:
+
+<Steps>
+  <Step title="Aggregate scores">
+    All `MatchResult` records are loaded. Scores are summed per team using `Integer::sum`.
+  </Step>
+  <Step title="Sort teams">
+    Teams are ordered by `totalScore` descending, then by `teamName` (the team's ID) ascending as a tiebreaker.
+
+    ```java
+    Comparator
+        .comparing(entry -> entry.getValue(), Comparator.reverseOrder())
+        .thenComparing(entry -> entry.getKey().getId())
+    ```
+  </Step>
+  <Step title="Assign positions">
+    Positions are assigned sequentially starting from `1`. The previous ranking data is deleted and replaced entirely.
+  </Step>
+</Steps>
+
+<Note>
+Ranking recalculation is a full replace — `deleteAllInBatch()` is called before saving the new rankings. Triggers for recalculation should be managed at the service/event level.
+</Note>
+
+---
+
+## Leaderboard
+
+The leaderboard provides a **paginated, edition-scoped** view of team standings, computed live from `MatchResult` data.
+
+### Leaderboard Sort Order
+
+Results are ordered by:
+
+1. `totalScore` **DESC** — highest cumulative score first
+2. `matchesPlayed` **DESC** — more matches played ranks higher on equal score
+3. `teamName` **ASC** — alphabetical tiebreaker
+
+```sql
+ORDER BY sum(mr.score) DESC, count(mr) DESC, mr.team.name ASC
+```
+
+### Leaderboard Response Fields
+
+Each row in the leaderboard contains:
+
+| Field | Type | Description |
+|---|---|---|
+| `position` | `int` | 1-based rank for this page (computed from `page * size + index + 1`) |
+| `teamId` | `String` | The team's name (primary key) |
+| `teamName` | `String` | The team's display name |
+| `totalScore` | `Long` | Sum of all scores in the edition |
+| `matchesPlayed` | `Long` | Number of matches the team has a result for |
+
+### Pagination
+
+The leaderboard endpoint accepts `page` and `size` query parameters.
+
+| Parameter | Type | Constraints |
+|---|---|---|
+| `page` | `int` | Must be ≥ 0 |
+| `size` | `int` | Must be between 1 and **100** (inclusive) |
+
+<Warning>
+A `size` greater than 100 is rejected with a `400 Bad Request`. This cap prevents excessively large responses.
+</Warning>
+
+```
+GET /api/editions/{editionId}/leaderboard?page=0&size=20
+```
+
+### Example Response
+
+```json
+{
+  "editionId": 1,
+  "page": 0,
+  "size": 20,
+  "totalElements": 12,
+  "items": [
+    {
+      "position": 1,
+      "teamId": "alpha-team",
+      "teamName": "alpha-team",
+      "totalScore": 350,
+      "matchesPlayed": 3
+    },
+    {
+      "position": 2,
+      "teamId": "beta-team",
+      "teamName": "beta-team",
+      "totalScore": 310,
+      "matchesPlayed": 3
+    }
+  ]
+}
+```
+
+<Tip>
+The leaderboard only includes teams that have at least one `MatchResult` in the edition. Teams registered to the edition but with no completed matches will not appear.
+</Tip>

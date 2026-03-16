@@ -1,0 +1,279 @@
+---
+title: 'Records'
+description: 'Create and manage user-owned records with automatic timestamp tracking.'
+---
+
+A **Record** is a named, user-owned resource that tracks creation and modification timestamps automatically. Records can include an optional description and are associated with the user who created them.
+
+## The Record object
+
+<ResponseField name="id" type="integer">
+  Auto-generated unique identifier.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  The name of the record. Must be non-blank.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Optional free-text description of the record.
+</ResponseField>
+
+<ResponseField name="created" type="string">
+  ISO 8601 timestamp (with timezone) set automatically when the record is first created. Cannot be set by the client.
+</ResponseField>
+
+<ResponseField name="modified" type="string">
+  ISO 8601 timestamp (with timezone) updated automatically every time the record is saved. Cannot be set by the client.
+</ResponseField>
+
+<ResponseField name="owner" type="string">
+  URI reference to the user who owns this record.
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  HAL hypermedia links for navigation.
+  <Expandable title="properties">
+    <ResponseField name="_links.self.href" type="string">
+      URL of this record resource.
+    </ResponseField>
+    <ResponseField name="_links.record.href" type="string">
+      Canonical URL of this record.
+    </ResponseField>
+    <ResponseField name="_links.owner.href" type="string">
+      URL of the owning user relation endpoint.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Event handler behavior
+
+<Note>
+  The `RecordEventHandler` manages timestamp fields automatically. You do not need to provide `created` or `modified` in the request body — they are ignored if supplied and set by the server.
+</Note>
+
+| Event | Behavior |
+|---|---|
+| Before create (`POST`) | Sets both `created` and `modified` to the current server time. |
+| Before save (`PUT` / `PATCH`) | Updates `modified` to the current server time. `created` is not changed. |
+
+---
+
+## Endpoints
+
+### List all records
+
+```
+GET /records
+```
+
+Returns a paginated list of all records.
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/records \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+### Get a single record
+
+```
+GET /records/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/records/1 \
+  -u user:password
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "id": 1,
+  "name": "My Record",
+  "description": null,
+  "created": "2024-03-01T10:00:00+01:00",
+  "modified": "2024-03-01T10:00:00+01:00",
+  "owner": "/users/user",
+  "_links": {
+    "self": { "href": "http://localhost:8080/records/1" },
+    "record": { "href": "http://localhost:8080/records/1" },
+    "owner": { "href": "http://localhost:8080/records/1/owner" }
+  }
+}
+```
+
+---
+
+### Create a record
+
+```
+POST /records
+```
+
+<Note>
+  The `created` and `modified` timestamps are set automatically by the server. You do not need to include them in the request body.
+</Note>
+
+<ParamField body="name" type="string" required>
+  The name of the record. Must be non-blank.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional description.
+</ParamField>
+
+<ParamField body="owner" type="string">
+  URI of the user who owns this record (e.g. `"/users/user"`). Typically set to the authenticated user.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/records \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{
+    "name": "My Record",
+    "owner": "/users/user"
+  }'
+```
+
+</CodeGroup>
+
+```json Response (201 Created)
+{
+  "id": 1,
+  "name": "My Record",
+  "description": null,
+  "created": "2024-03-01T10:00:00+01:00",
+  "modified": "2024-03-01T10:00:00+01:00",
+  "owner": "/users/user",
+  "_links": {
+    "self": { "href": "http://localhost:8080/records/1" },
+    "record": { "href": "http://localhost:8080/records/1" },
+    "owner": { "href": "http://localhost:8080/records/1/owner" }
+  }
+}
+```
+
+---
+
+### Update a record
+
+```
+PUT /records/{id}
+```
+
+Full replacement of the record resource. The `modified` timestamp is automatically updated to the current server time.
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT http://localhost:8080/records/1 \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{
+    "name": "Updated Record Name",
+    "description": "Now with a description",
+    "owner": "/users/user"
+  }'
+```
+
+</CodeGroup>
+
+You can also partially update with `PATCH`:
+
+```
+PATCH /records/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X PATCH http://localhost:8080/records/1 \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{"description": "Now with a description"}'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a record
+
+```
+DELETE /records/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE http://localhost:8080/records/1 \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+## Search endpoints
+
+Search methods are exposed at `/records/search`.
+
+### Find by owner
+
+```
+GET /records/search/findByOwner?user={userUri}
+```
+
+Returns all records owned by the specified user.
+
+<ParamField query="user" type="string" required>
+  URI of the user whose records to retrieve (e.g. `"/users/user"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/records/search/findByOwner?user=/users/user" \
+  -u user:password
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "_embedded": {
+    "records": [
+      {
+        "id": 1,
+        "name": "My Record",
+        "description": null,
+        "created": "2024-03-01T10:00:00+01:00",
+        "modified": "2024-03-01T10:00:00+01:00",
+        "owner": "/users/user"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Validation rules
+
+- `name` must not be blank.
+- `created` and `modified` are managed by the server and should not be included in request bodies.
+- Authentication is required for all write operations.

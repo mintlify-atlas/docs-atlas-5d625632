@@ -1,0 +1,147 @@
+---
+title: 'Match scheduling'
+description: 'Scheduling constraints and validation rules applied when creating or updating matches.'
+keywords: ['match scheduling', 'scheduling constraints', 'table overlap', 'time validation', 'fll']
+---
+
+When you create or update a match, the API automatically validates the schedule against a set of constraints. Requests that violate these constraints are rejected with an appropriate error code.
+
+---
+
+## Constraints
+
+### Valid time range
+
+Every match must have both a `startTime` and an `endTime`. The start time must be **strictly before** the end time. A match where `startTime >= endTime` is rejected.
+
+### No table time overlap
+
+If a match is assigned to a competition table, its time window must not overlap with any other match already scheduled on that same table. Two windows overlap when one starts before the other ends.
+
+<Note>
+  You can reassign a match to a different table. The overlap check runs against the new target table, excluding the match being updated.
+</Note>
+
+### Teams play each other at most once (FLL rule)
+
+In First Lego League, a pair of teams must not be scheduled against each other more than once across all rounds. This constraint applies when setting `teamA` and `teamB` on a match.
+
+---
+
+## Error codes
+
+| Error code | HTTP status | Description |
+|------------|-------------|-------------|
+| `INVALID_TIME_RANGE` | `422` | `startTime` is null, `endTime` is null, or `startTime` is not before `endTime`. |
+| `TABLE_TIME_OVERLAP` | `409` | The match overlaps with another match already on the same competition table. |
+
+---
+
+## Creating a match
+
+Use `POST /matches` to create a new match. You must supply at least `startTime`, `endTime`, and a reference to the `round`. Assigning a `competitionTable` at creation time triggers the overlap validation immediately.
+
+### Request body fields
+
+<ParamField body="startTime" type="string (ISO time)" required>
+  Start time in `HH:mm:ss` format (e.g. `10:00:00`).
+</ParamField>
+
+<ParamField body="endTime" type="string (ISO time)" required>
+  End time in `HH:mm:ss` format (e.g. `11:00:00`). Must be after `startTime`.
+</ParamField>
+
+<ParamField body="round" type="string (URI)">
+  URI reference to the round (e.g. `/rounds/1`).
+</ParamField>
+
+<ParamField body="competitionTable" type="string (URI)">
+  URI reference to the table (e.g. `/competitionTables/Table-01`). If provided, the overlap constraint is checked immediately.
+</ParamField>
+
+<ParamField body="teamA" type="string (URI)">
+  URI reference to team A (e.g. `/teams/RoboBuilders`).
+</ParamField>
+
+<ParamField body="teamB" type="string (URI)">
+  URI reference to team B (e.g. `/teams/LegoStars`).
+</ParamField>
+
+<CodeGroup>
+
+```bash Create a valid match
+curl --request POST \
+  --url http://localhost:8080/matches \
+  --header 'Authorization: Basic YWRtaW46YWRtaW4=' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "startTime": "12:00:00",
+    "endTime": "13:00:00",
+    "round": "/rounds/1",
+    "competitionTable": "/competitionTables/Table-01"
+  }'
+```
+
+```json Response (201)
+{
+  "id": 3,
+  "startTime": "12:00:00",
+  "endTime": "13:00:00",
+  "state": "SCHEDULED",
+  "_links": {
+    "self": { "href": "http://localhost:8080/matches/3" }
+  }
+}
+```
+
+</CodeGroup>
+
+### Scheduling error examples
+
+<CodeGroup>
+
+```bash Invalid time range
+curl --request POST \
+  --url http://localhost:8080/matches \
+  --header 'Authorization: Basic YWRtaW46YWRtaW4=' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "startTime": "12:00:00",
+    "endTime": "11:00:00",
+    "round": "/rounds/1",
+    "competitionTable": "/competitionTables/Table-01"
+  }'
+```
+
+```json Response (422)
+{
+  "errorCode": "INVALID_TIME_RANGE",
+  "message": "Match start time must be strictly before end time"
+}
+```
+
+</CodeGroup>
+
+<CodeGroup>
+
+```bash Table time overlap
+curl --request POST \
+  --url http://localhost:8080/matches \
+  --header 'Authorization: Basic YWRtaW46YWRtaW4=' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "startTime": "10:30:00",
+    "endTime": "11:30:00",
+    "round": "/rounds/1",
+    "competitionTable": "/competitionTables/Table-01"
+  }'
+```
+
+```json Response (409)
+{
+  "errorCode": "TABLE_TIME_OVERLAP",
+  "message": "The match schedule overlaps with an existing match on the same table"
+}
+```
+
+</CodeGroup>

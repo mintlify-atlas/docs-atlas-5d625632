@@ -1,0 +1,94 @@
+---
+title: 'Register'
+description: 'Create a new user account. No authentication required.'
+---
+
+Register a new user account. This endpoint is open to anonymous requests. Authenticated users are **not** permitted to call it.
+
+## Register a user
+
+```
+POST /users
+```
+
+<Note>
+  This endpoint is restricted to unauthenticated (anonymous) callers. An already-authenticated user making this request will receive `403 Forbidden`.
+</Note>
+
+### Request body
+
+<ParamField body="id" type="string" required>
+  The desired username. Serves as the primary key. Must be unique across all users.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  A valid, unique email address. Must not be blank and must conform to standard email format.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Plain-text password. Must be between **8 and 256 characters**. The value is stored BCrypt-hashed; the raw password is never returned in any response.
+</ParamField>
+
+### Response (201 Created)
+
+The created user object. The `password` field is **write-only** and is never included in any response.
+
+<ResponseField name="id" type="string">
+  The username of the newly created user.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  The email address of the newly created user.
+</ResponseField>
+
+### Error responses
+
+| HTTP status | Description |
+|---|---|
+| `400` | Validation failed — blank `email`, blank `password`, invalid email format, or password length outside 8–256 characters. |
+| `403` | Caller is already authenticated. |
+| `409` | A user with the same `id` (username) or `email` already exists. |
+
+### Examples
+
+<CodeGroup>
+
+```bash Register a new user
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{"id": "alice", "email": "alice@example.com", "password": "s3cr3tpw"}'
+```
+
+```json 201 Created
+{
+  "id": "alice",
+  "email": "alice@example.com",
+  "_links": {
+    "self": { "href": "http://localhost:8080/users/alice" }
+  }
+}
+```
+
+```json 400 Validation error
+{
+  "errors": [
+    {
+      "field": "password",
+      "message": "length must be between 8 and 256"
+    }
+  ]
+}
+```
+
+```json 409 Conflict
+{
+  "status": 409,
+  "message": "User already exists"
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  `POST /users/*` (any sub-path under `/users/`) is explicitly denied for all callers. Only `POST /users` (the collection endpoint) is allowed for registration.
+</Warning>

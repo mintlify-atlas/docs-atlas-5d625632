@@ -1,0 +1,244 @@
+---
+title: 'Coaches'
+description: 'Manage coaches and assign them to teams. Each team supports up to 2 coaches; each coach may train at most 2 teams.'
+keywords: ['coaches', 'fll', 'assign coach', 'crud', 'rest']
+---
+
+A `Coach` is a person who trains one or more FLL teams. Coaches are independent resources—they exist outside the volunteer hierarchy and are identified by an auto-generated integer ID.
+
+<Note>
+  - A team may have **at most 2 coaches**.
+  - A coach may train **at most 2 teams**.
+</Note>
+
+## Coach entity
+
+<ResponseField name="id" type="integer">
+  Auto-generated numeric identifier.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Full name of the coach. Cannot be blank.
+</ResponseField>
+
+<ResponseField name="emailAddress" type="string" required>
+  Unique email address. Must be a valid email format.
+</ResponseField>
+
+<ResponseField name="phoneNumber" type="string">
+  Contact phone number.
+</ResponseField>
+
+<ResponseField name="teams" type="object[]">
+  Set of teams this coach is assigned to. Maximum 2.
+</ResponseField>
+
+---
+
+## List coaches
+
+```
+GET /coaches
+```
+
+Returns a paginated list of all coaches. Public endpoint.
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page number.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of results per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort field and direction, e.g. `name,asc`.
+</ParamField>
+
+```bash List all coaches
+curl -X GET http://localhost:8080/coaches
+```
+
+---
+
+## Get a coach
+
+```
+GET /coaches/{id}
+```
+
+<ParamField path="id" type="integer" required>
+  The numeric coach ID.
+</ParamField>
+
+```bash Get coach by ID
+curl -X GET http://localhost:8080/coaches/1
+```
+
+---
+
+## Create a coach
+
+```
+POST /coaches
+```
+
+Requires authentication.
+
+### Request body
+
+<ParamField body="name" type="string" required>
+  Coach full name. Cannot be blank.
+</ParamField>
+
+<ParamField body="emailAddress" type="string" required>
+  Valid, unique email address.
+</ParamField>
+
+<ParamField body="phoneNumber" type="string">
+  Contact phone number.
+</ParamField>
+
+```bash Create a coach
+curl -X POST http://localhost:8080/coaches \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Sergio Gomez",
+    "emailAddress": "sergio@example.com",
+    "phoneNumber": "123456789"
+  }'
+```
+
+Returns `201 Created` with a `Location` header.
+
+---
+
+## Update a coach
+
+<CodeGroup>
+
+```bash Full update (PUT)
+curl -X PUT http://localhost:8080/coaches/1 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Sergio Gomez",
+    "emailAddress": "sergio.new@example.com",
+    "phoneNumber": "987654321"
+  }'
+```
+
+```bash Partial update (PATCH)
+curl -X PATCH http://localhost:8080/coaches/1 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"phoneNumber": "987654321"}'
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Delete a coach
+
+```
+DELETE /coaches/{id}
+```
+
+Requires authentication.
+
+```bash Delete a coach
+curl -X DELETE http://localhost:8080/coaches/1 \
+  -u admin:admin
+```
+
+Returns `204 No Content` on success.
+
+---
+
+## Assign a coach to a team
+
+```
+POST /teams/assign-coach
+```
+
+This custom endpoint assigns an existing coach to an existing team. Requires authentication. All assignment constraints are enforced atomically using pessimistic locking.
+
+### Request body
+
+<ParamField body="teamId" type="string" required>
+  The name (string ID) of the target team.
+</ParamField>
+
+<ParamField body="coachId" type="integer" required>
+  The numeric ID of the coach to assign.
+</ParamField>
+
+### Response body
+
+<ResponseField name="teamId" type="string">
+  The team name the coach was assigned to.
+</ResponseField>
+
+<ResponseField name="coachId" type="integer">
+  The ID of the assigned coach.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Always `"ASSIGNED"` on success.
+</ResponseField>
+
+```bash Assign coach to team
+curl -X POST http://localhost:8080/teams/assign-coach \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "teamId": "LegoStars",
+    "coachId": 1
+  }'
+```
+
+Example success response (`200 OK`):
+
+```json
+{
+  "teamId": "LegoStars",
+  "coachId": 1,
+  "status": "ASSIGNED"
+}
+```
+
+### Error codes
+
+On failure the endpoint returns an `ApiErrorResponse` body with an `errorCode` field.
+
+| Error code | HTTP status | Description |
+|---|---|---|
+| `TEAM_NOT_FOUND` | `404 Not Found` | No team exists with the given `teamId`. |
+| `COACH_NOT_FOUND` | `404 Not Found` | No coach exists with the given `coachId`. |
+| `COACH_ALREADY_ASSIGNED` | `409 Conflict` | The coach is already assigned to this team. |
+| `MAX_COACHES_PER_TEAM_REACHED` | `409 Conflict` | The team already has 2 coaches. |
+| `MAX_TEAMS_PER_COACH_REACHED` | `409 Conflict` | The coach already trains 2 teams. |
+| `INVALID_ASSIGN_COACH_REQUEST` | `400 Bad Request` | Malformed or unreadable request body. |
+
+```json Example error response
+{
+  "errorCode": "MAX_COACHES_PER_TEAM_REACHED",
+  "message": "Team already has the maximum number of coaches",
+  "path": "/teams/assign-coach"
+}
+```
+
+---
+
+## Validation rules
+
+| Field | Rule |
+|---|---|
+| `name` | Required, cannot be blank |
+| `emailAddress` | Required, valid email, unique |

@@ -1,0 +1,189 @@
+---
+title: 'Referees'
+description: 'Manage referees — volunteers who supervise robot matches at competition tables.'
+keywords: ['referees', 'fll', 'volunteers', 'crud', 'rest']
+---
+
+A `Referee` is a volunteer who supervises robot game matches at a `CompetitionTable`. Referees extend the [Volunteer](/api/volunteers/volunteers) base entity with an `expert` flag and a `supervisesTable` association.
+
+## Referee entity
+
+Inherits all [Volunteer base fields](/api/volunteers/volunteers#volunteer-base-entity), plus:
+
+<ResponseField name="expert" type="boolean">
+  Indicates whether the referee is an expert-level official. Defaults to `false`.
+</ResponseField>
+
+<ResponseField name="supervisesTable" type="object">
+  The `CompetitionTable` this referee is assigned to supervise. `null` if not yet assigned.
+</ResponseField>
+
+---
+
+## List referees
+
+```
+GET /referees
+```
+
+Returns a paginated list of all referees. Public endpoint.
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page number.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of results per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort field and direction, e.g. `name,asc`.
+</ParamField>
+
+```bash List all referees
+curl -X GET http://localhost:8080/referees
+```
+
+### Search by name
+
+Case-insensitive substring match exposed via Spring Data REST:
+
+```bash Search referees by name
+curl -X GET "http://localhost:8080/referees/search/findByNameContaining?name=marc"
+```
+
+Returns a list of referees whose names contain the query string (case-insensitive).
+
+---
+
+## Get a referee
+
+```
+GET /referees/{id}
+```
+
+<ParamField path="id" type="integer" required>
+  The numeric referee ID.
+</ParamField>
+
+```bash Get referee by ID
+curl -X GET http://localhost:8080/referees/7
+```
+
+---
+
+## Create a referee
+
+```
+POST /referees
+```
+
+Requires authentication.
+
+### Request body
+
+<ParamField body="name" type="string" required>
+  Full name. Cannot be blank.
+</ParamField>
+
+<ParamField body="emailAddress" type="string" required>
+  Valid, unique email address.
+</ParamField>
+
+<ParamField body="phoneNumber" type="string" required>
+  Contact phone number. Cannot be blank.
+</ParamField>
+
+<ParamField body="expert" type="boolean" default="false">
+  Whether the referee is an expert official.
+</ParamField>
+
+```bash Create a referee
+curl -X POST http://localhost:8080/referees \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Marc Soler",
+    "emailAddress": "marc@udl.cat",
+    "phoneNumber": "123456789",
+    "expert": false
+  }'
+```
+
+Returns `201 Created` with a `Location` header.
+
+---
+
+## Update a referee
+
+<CodeGroup>
+
+```bash Full update (PUT)
+curl -X PUT http://localhost:8080/referees/7 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Marc Soler",
+    "emailAddress": "marc@udl.cat",
+    "phoneNumber": "987654321",
+    "expert": true
+  }'
+```
+
+```bash Partial update (PATCH)
+curl -X PATCH http://localhost:8080/referees/7 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"expert": true}'
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Delete a referee
+
+```
+DELETE /referees/{id}
+```
+
+Requires authentication.
+
+```bash Delete a referee
+curl -X DELETE http://localhost:8080/referees/7 \
+  -u admin:admin
+```
+
+Returns `204 No Content` on success.
+
+---
+
+## Competition table assignment
+
+A referee is assigned to supervise a `CompetitionTable` via the `supervisesTable` relationship. Set or update it via a `PATCH` request:
+
+```bash Assign referee to a competition table
+curl -X PATCH http://localhost:8080/referees/7 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"supervisesTable": "/competitionTables/1"}'
+```
+
+<Note>
+  The `supervisesTable` field is serialised with `@JsonBackReference` to prevent circular reference issues. The assigned table's roster is the authoritative source for listing all referees at a given table.
+</Note>
+
+---
+
+## Validation rules
+
+| Field | Rule |
+|---|---|
+| `name` | Required, cannot be blank |
+| `emailAddress` | Required, valid email, unique |
+| `phoneNumber` | Required, cannot be blank |
+| `expert` | Optional boolean, defaults to `false` |

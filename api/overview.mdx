@@ -1,0 +1,148 @@
+---
+title: "API overview"
+description: "Base URLs, authentication, content types, pagination, error handling, and a full endpoint index for the First Lego League Backend."
+---
+
+## Base URLs
+
+| Environment | URL |
+|---|---|
+| Local development | `http://localhost:8080` |
+| Production (Fly.io) | `https://spring-template.fly.dev` |
+
+## API style
+
+The API is built with **Spring Data REST** and follows the **HAL+JSON** hypermedia format (HATEOAS). Most collection and resource endpoints are auto-exposed by the repository layer. Custom business endpoints (lifecycle transitions, team registration, volunteers, tables) are plain REST controllers.
+
+<Note>
+  Every response from a Spring Data REST endpoint includes a `_links` object with `self` and relation links. Use these links to navigate the API rather than constructing URLs manually.
+</Note>
+
+## Content types
+
+| Direction | Value |
+|---|---|
+| Request body | `application/json` |
+| Response body | `application/hal+json` (Spring Data REST) / `application/json` (custom controllers) |
+
+## Authentication
+
+The API uses **HTTP Basic authentication** over a stateless session. Pass a `Authorization: Basic <base64(username:password)>` header with every request that requires authentication.
+
+```bash
+curl -u admin:password https://spring-template.fly.dev/editions
+```
+
+Endpoints that require authentication return `401 Unauthorized` when credentials are missing or incorrect.
+
+## Pagination
+
+Spring Data REST collection endpoints support pagination via query parameters.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `page` | `0` | Zero-based page number |
+| `size` | `20` | Number of items per page |
+| `sort` | — | Field name and direction, e.g. `year,desc` |
+
+```bash
+GET /editions?page=0&size=10&sort=year,desc
+```
+
+Paginated responses include a `page` metadata object and `_links` for `first`, `prev`, `self`, `next`, and `last`.
+
+## Error response structure
+
+Custom controllers return errors in the following structure:
+
+```json
+{
+  "error": "EDITION_NOT_FOUND",
+  "message": "Edition with id 42 not found",
+  "timestamp": "2025-03-16T10:00:00.000Z",
+  "path": "/editions/42/state",
+  "details": null
+}
+```
+
+<ResponseField name="error" type="string" required>
+  Machine-readable error code (e.g. `EDITION_NOT_FOUND`, `MAX_TEAMS_REACHED`).
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Human-readable description of what went wrong.
+</ResponseField>
+
+<ResponseField name="timestamp" type="string" required>
+  ISO 8601 timestamp of when the error occurred.
+</ResponseField>
+
+<ResponseField name="path" type="string" required>
+  The request path that produced the error.
+</ResponseField>
+
+<ResponseField name="details" type="object">
+  Optional structured details (e.g. validation field errors). Omitted when null.
+</ResponseField>
+
+## Explorer and docs
+
+| Tool | Path |
+|---|---|
+| HAL Explorer | `/` (root) |
+| Swagger UI | `/swagger-ui.html` |
+| OpenAPI JSON | `/v3/api-docs` |
+
+## Endpoint index
+
+### Editions
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/editions` | No | List all editions (paginated) |
+| `GET` | `/editions/{id}` | No | Get a single edition |
+| `POST` | `/editions` | Yes | Create a new edition |
+| `PUT` | `/editions/{id}` | Yes | Replace an edition |
+| `PATCH` | `/editions/{id}` | Yes | Partially update an edition |
+| `DELETE` | `/editions/{id}` | Yes | Delete an edition |
+| `PATCH` | `/editions/{editionId}/state` | Yes | Transition edition lifecycle state |
+| `POST` | `/editions/{editionId}/teams/{teamId}` | Yes | Register a team to an edition |
+| `GET` | `/editions/{editionId}/volunteers` | Yes | List volunteers grouped by type |
+| `GET` | `/editions/{editionId}/tables` | No | List competition tables with scheduled matches |
+
+### Teams & Volunteers
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/teams` | No | List all teams |
+| `GET` | `/teams/{id}` | No | Get a single team |
+| `POST` | `/teams` | Yes | Create a team |
+| `GET` | `/volunteers` | No | List all volunteers |
+| `GET` | `/judges` | No | List judges |
+| `GET` | `/referees` | No | List referees |
+| `GET` | `/floaters` | No | List floaters |
+
+### Matches & Scheduling
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/matches` | No | List all matches |
+| `POST` | `/matches/{matchId}/assign` | Yes | Assign a team to a match |
+| `POST` | `/matchResults/register` | Yes | Register a match score |
+
+### Competition
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/rounds` | No | List rounds |
+| `GET` | `/competitionTables` | No | List competition tables |
+| `GET` | `/projectRooms` | No | List project rooms |
+| `GET` | `/leaderboard` | No | Get paginated leaderboard |
+
+### Users & Identity
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/users` | No | Register a new user |
+| `GET` | `/identity` | Yes | Get the authenticated user's identity |
+| `GET` | `/users` | Yes | List all users |

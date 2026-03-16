@@ -1,0 +1,122 @@
+---
+title: 'Match score registration'
+description: 'Register the final score for a completed match and automatically recalculate the team ranking.'
+keywords: ['match score', 'score registration', 'ranking', 'match result', 'fll']
+---
+
+Once a match has finished, use this endpoint to record the final scores for both teams. The ranking is recalculated automatically as part of the same transaction.
+
+<Warning>
+  Direct `POST` requests to `/matchResults` are disabled (`405 Method Not Allowed`). Always use `/matchResults/register`.
+</Warning>
+
+---
+
+## POST /matchResults/register
+
+**Authentication required.**
+
+### Request body
+
+<ParamField body="matchId" type="long" required>
+  The ID of the match to register the score for.
+</ParamField>
+
+<ParamField body="score" type="object" required>
+  Score details for both teams.
+
+  <Expandable title="score fields">
+    <ParamField body="teamAId" type="string" required>
+      The ID (name) of team A. Must match one of the teams assigned to the match; order can be reversed.
+    </ParamField>
+    <ParamField body="teamBId" type="string" required>
+      The ID (name) of team B. Must be different from `teamAId`.
+    </ParamField>
+    <ParamField body="teamAScore" type="integer" required>
+      Score achieved by team A. Must be 0 or greater.
+    </ParamField>
+    <ParamField body="teamBScore" type="integer" required>
+      Score achieved by team B. Must be 0 or greater.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response (200)
+
+<ResponseField name="matchId" type="long">
+  The ID of the match whose score was registered.
+</ResponseField>
+
+<ResponseField name="resultSaved" type="boolean">
+  `true` when the match result records were persisted successfully.
+</ResponseField>
+
+<ResponseField name="rankingUpdated" type="boolean">
+  `true` when the team ranking was recalculated after saving the results.
+</ResponseField>
+
+### Ranking recalculation
+
+After saving both `MatchResult` records, `RankingService.recalculateRanking()` is called in the same transaction. This means the global ranking is always consistent with the registered scores — no separate step is required.
+
+<CodeGroup>
+
+```bash Register a match score
+curl --request POST \
+  --url http://localhost:8080/matchResults/register \
+  --header 'Authorization: Basic c2NvcmUtdXNlcjpwYXNzd29yZA==' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "matchId": 1,
+    "score": {
+      "teamAId": "RoboBuilders",
+      "teamBId": "LegoStars",
+      "teamAScore": 120,
+      "teamBScore": 95
+    }
+  }'
+```
+
+```json Response (200)
+{
+  "matchId": 1,
+  "resultSaved": true,
+  "rankingUpdated": true
+}
+```
+
+</CodeGroup>
+
+---
+
+## Error codes
+
+<AccordionGroup>
+  <Accordion title="INVALID_SCORE_PAYLOAD — 400">
+    The request body is missing, malformed (unparseable JSON), or the `score` object is null. All fields in the `score` object are required.
+  </Accordion>
+
+  <Accordion title="MATCH_NOT_FOUND — 404">
+    No match exists with the provided `matchId`.
+  </Accordion>
+
+  <Accordion title="INVALID_MATCH_STATE — 409">
+    The match does not have a valid `startTime`, or the `endTime` is before `startTime`. The match must be in a proper finished state before a result can be recorded.
+  </Accordion>
+
+  <Accordion title="MATCH_NOT_FINISHED — 409">
+    The match does not have an `endTime` set. A match must be finished (both start and end times present) before registering a result.
+  </Accordion>
+
+  <Accordion title="RESULT_ALREADY_EXISTS — 409">
+    A result has already been registered for this match. Each match may only have one result.
+  </Accordion>
+
+  <Accordion title="INVALID_SCORE — 422">
+    One or both scores are negative, or `teamAId` and `teamBId` are the same value. A match result requires two distinct teams and non-negative scores.
+  </Accordion>
+
+  <Accordion title="TEAM_MISMATCH — 422">
+    The provided `teamAId` and `teamBId` do not match the teams assigned to the match. Both teams must be supplied, but order is flexible (direct or reversed assignment is accepted).
+  </Accordion>
+</AccordionGroup>

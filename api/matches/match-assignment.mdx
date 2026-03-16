@@ -1,0 +1,191 @@
+---
+title: 'Match assignment'
+description: 'Assign referees to individual matches or in batch for an entire round.'
+keywords: ['match assignment', 'referee', 'batch assignment', 'fll']
+---
+
+The match assignment API lets tournament organizers assign referees to matches one at a time or in a single batch operation scoped to a round. All assignments are validated for conflicts before being persisted.
+
+---
+
+## POST /matchAssignments/assign
+
+Assign a single referee to a match.
+
+### Request body
+
+<ParamField body="matchId" type="string" required>
+  The ID of the match to assign the referee to.
+</ParamField>
+
+<ParamField body="refereeId" type="string" required>
+  The ID of the volunteer who will act as referee. The volunteer must have the `Referee` role.
+</ParamField>
+
+### Response (200)
+
+<ResponseField name="matchId" type="string">
+  The ID of the match that was updated.
+</ResponseField>
+
+<ResponseField name="refereeId" type="string">
+  The ID of the referee that was assigned.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Always `"ASSIGNED"` on success.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Assign a referee
+curl --request POST \
+  --url http://localhost:8080/matchAssignments/assign \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "matchId": "1",
+    "refereeId": "5"
+  }'
+```
+
+```json Response (200)
+{
+  "matchId": "1",
+  "refereeId": "5",
+  "status": "ASSIGNED"
+}
+```
+
+</CodeGroup>
+
+---
+
+## POST /matchAssignments/batch
+
+Assign referees to multiple matches in a single transactional operation. All assignments belong to the same round. If any individual assignment fails, the entire batch is rolled back.
+
+### Request body
+
+<ParamField body="roundId" type="string" required>
+  The ID of the round that all matches in this batch belong to.
+</ParamField>
+
+<ParamField body="assignments" type="object[]" required>
+  A non-empty list of assignment items.
+
+  <Expandable title="assignments item">
+    <ParamField body="matchId" type="string" required>
+      The ID of the match.
+    </ParamField>
+    <ParamField body="refereeId" type="string" required>
+      The ID of the referee to assign.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response (200)
+
+<ResponseField name="roundId" type="string">
+  The round ID provided in the request.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  `"ASSIGNED"` when the full batch succeeded.
+</ResponseField>
+
+<ResponseField name="processed" type="integer">
+  The number of assignments processed (equals the length of `assignments`).
+</ResponseField>
+
+<ResponseField name="assignments" type="object[]">
+  Results for each assignment in the same order as the request.
+
+  <Expandable title="assignment item">
+    <ResponseField name="matchId" type="string">
+      The match ID from the request item.
+    </ResponseField>
+    <ResponseField name="refereeId" type="string">
+      The referee ID from the request item.
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      `"ASSIGNED"` for each successfully processed item.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash Batch assign referees
+curl --request POST \
+  --url http://localhost:8080/matchAssignments/batch \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "roundId": "2",
+    "assignments": [
+      {"matchId": "10", "refereeId": "5"},
+      {"matchId": "11", "refereeId": "6"}
+    ]
+  }'
+```
+
+```json Response (200)
+{
+  "roundId": "2",
+  "status": "ASSIGNED",
+  "processed": 2,
+  "assignments": [
+    {"matchId": "10", "refereeId": "5", "status": "ASSIGNED"},
+    {"matchId": "11", "refereeId": "6", "status": "ASSIGNED"}
+  ]
+}
+```
+
+</CodeGroup>
+
+---
+
+## Error codes
+
+When an assignment fails, the response body contains an `errorCode` field with one of the values below.
+
+<AccordionGroup>
+  <Accordion title="MATCH_NOT_FOUND — 404">
+    No match exists with the provided `matchId`.
+  </Accordion>
+
+  <Accordion title="REFEREE_NOT_FOUND — 404">
+    No volunteer exists with the provided `refereeId`.
+  </Accordion>
+
+  <Accordion title="ROUND_NOT_FOUND — 404">
+    No round exists with the provided `roundId`. Returned by the batch endpoint.
+  </Accordion>
+
+  <Accordion title="INVALID_ROLE — 422">
+    The volunteer identified by `refereeId` does not have the `Referee` role.
+  </Accordion>
+
+  <Accordion title="MATCH_ALREADY_HAS_REFEREE — 409">
+    The match already has a referee assigned. Remove the existing assignment before reassigning.
+  </Accordion>
+
+  <Accordion title="INVALID_MATCH_STATE — 422">
+    The match is in a state that does not allow referee assignment — either `FINISHED`, or it is missing `startTime`/`endTime` values. In the batch endpoint, this also fires when a match does not belong to the requested round.
+  </Accordion>
+
+  <Accordion title="AVAILABILITY_CONFLICT — 409">
+    The referee is already assigned to another match whose time window overlaps with this one.
+  </Accordion>
+
+  <Accordion title="DUPLICATE_MATCH_IN_BATCH — 400">
+    The same `matchId` appears more than once in a single batch request.
+  </Accordion>
+
+  <Accordion title="INVALID_ID_FORMAT — 400">
+    A provided `matchId` or `refereeId` is not a valid numeric identifier.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Batch assignments are fully transactional. If any item in the batch fails validation — including intra-batch referee conflicts — the entire operation is rolled back and no matches are updated.
+</Warning>

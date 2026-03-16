@@ -1,0 +1,303 @@
+---
+title: 'Scientific projects'
+description: 'Manage scientific project evaluations submitted by teams for a given edition.'
+---
+
+A **ScientificProject** represents a team's scientific project submission within a competition edition. It records a numeric score, optional reviewer comments, and references to the participating team and edition.
+
+## The ScientificProject object
+
+<ResponseField name="id" type="integer">
+  Auto-generated unique identifier.
+</ResponseField>
+
+<ResponseField name="score" type="integer">
+  The numeric score assigned to the project. Must be non-negative.
+</ResponseField>
+
+<ResponseField name="comments" type="string">
+  Optional reviewer comments about the project.
+</ResponseField>
+
+<ResponseField name="team" type="string" required>
+  URI reference to the team that submitted the project.
+</ResponseField>
+
+<ResponseField name="edition" type="string" required>
+  URI reference to the edition this project belongs to.
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  HAL hypermedia links for navigation.
+  <Expandable title="properties">
+    <ResponseField name="_links.self.href" type="string">
+      URL of this scientific project resource.
+    </ResponseField>
+    <ResponseField name="_links.scientificProject.href" type="string">
+      Canonical URL of this scientific project.
+    </ResponseField>
+    <ResponseField name="_links.team.href" type="string">
+      URL of the linked team relation endpoint.
+    </ResponseField>
+    <ResponseField name="_links.edition.href" type="string">
+      URL of the linked edition relation endpoint.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Event handler behavior
+
+<Note>
+  The `ScientificProjectEventHandler` validates every create and update request before it is persisted. Validation failures return `400 Bad Request` with a structured error code and message.
+</Note>
+
+The following validations are applied on both `POST` (create) and `PUT`/`PATCH` (update):
+
+| Error code | Condition | Message |
+|---|---|---|
+| `TEAM_REQUIRED` | `team` is null or missing | `A scientific project must have an associated team` |
+| `TEAM_NOT_FOUND` | Referenced team does not exist in the database | `The referenced team does not exist` |
+| `EDITION_REQUIRED` | `edition` is null or missing | `A scientific project must belong to an edition` |
+| `EDITION_NOT_FOUND` | Referenced edition does not exist in the database | `The referenced edition does not exist` |
+| `EDITION_TEAM_MISMATCH` | Team is not registered in the referenced edition | `The referenced team is not registered in the referenced edition` |
+
+---
+
+## Endpoints
+
+### List all scientific projects
+
+```
+GET /scientificProjects
+```
+
+Returns a paginated list of all scientific projects.
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/scientificProjects \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+### Get a single scientific project
+
+```
+GET /scientificProjects/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/scientificProjects/1 \
+  -u user:password
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "id": 1,
+  "score": 85,
+  "comments": "Great innovation",
+  "team": "/teams/LegoStars",
+  "edition": "/editions/1",
+  "_links": {
+    "self": { "href": "http://localhost:8080/scientificProjects/1" },
+    "scientificProject": { "href": "http://localhost:8080/scientificProjects/1" },
+    "team": { "href": "http://localhost:8080/scientificProjects/1/team" },
+    "edition": { "href": "http://localhost:8080/scientificProjects/1/edition" }
+  }
+}
+```
+
+---
+
+### Create a scientific project
+
+```
+POST /scientificProjects
+```
+
+<Warning>
+  Both `team` and `edition` must reference entities that already exist in the system. Additionally, the team must be registered in the referenced edition. See [event handler behavior](#event-handler-behavior) for all validation rules.
+</Warning>
+
+<ParamField body="score" type="integer">
+  The project score. Must be non-negative.
+</ParamField>
+
+<ParamField body="comments" type="string">
+  Optional reviewer comments.
+</ParamField>
+
+<ParamField body="team" type="string" required>
+  URI of the team submitting the project (e.g. `"/teams/LegoStars"`).
+</ParamField>
+
+<ParamField body="edition" type="string" required>
+  URI of the edition this project belongs to (e.g. `"/editions/1"`).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/scientificProjects \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{
+    "score": 85,
+    "comments": "Great innovation",
+    "team": "/teams/LegoStars",
+    "edition": "/editions/1"
+  }'
+```
+
+</CodeGroup>
+
+```json Response (201 Created)
+{
+  "id": 1,
+  "score": 85,
+  "comments": "Great innovation",
+  "team": "/teams/LegoStars",
+  "edition": "/editions/1",
+  "_links": {
+    "self": { "href": "http://localhost:8080/scientificProjects/1" },
+    "scientificProject": { "href": "http://localhost:8080/scientificProjects/1" },
+    "team": { "href": "http://localhost:8080/scientificProjects/1/team" },
+    "edition": { "href": "http://localhost:8080/scientificProjects/1/edition" }
+  }
+}
+```
+
+---
+
+### Update a scientific project
+
+```
+PUT /scientificProjects/{id}
+```
+
+Full replacement of the scientific project resource. The same team, edition, and compatibility validations apply.
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT http://localhost:8080/scientificProjects/1 \
+  -H "Content-Type: application/json" \
+  -u user:password \
+  -d '{
+    "score": 90,
+    "comments": "Updated review",
+    "team": "/teams/LegoStars",
+    "edition": "/editions/1"
+  }'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a scientific project
+
+```
+DELETE /scientificProjects/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE http://localhost:8080/scientificProjects/1 \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+## Search endpoints
+
+Search methods are exposed at `/scientificProjects/search`.
+
+### Find by minimum score
+
+```
+GET /scientificProjects/search/findByScoreGreaterThanEqual?minScore={score}
+```
+
+Returns all scientific projects with a score greater than or equal to the given value.
+
+<ParamField query="minScore" type="integer" required>
+  Minimum score threshold (inclusive).
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/scientificProjects/search/findByScoreGreaterThanEqual?minScore=85" \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+### Find by team name
+
+```
+GET /scientificProjects/search/findByTeamName?teamName={name}
+```
+
+Returns all scientific projects submitted by the team with the given exact name.
+
+<ParamField query="teamName" type="string" required>
+  The exact name of the team.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/scientificProjects/search/findByTeamName?teamName=LegoStars" \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+### Find by edition ID
+
+```
+GET /scientificProjects/search/findByEditionId?editionId={id}
+```
+
+Returns all scientific projects belonging to the edition with the given ID.
+
+<ParamField query="editionId" type="integer" required>
+  The numeric ID of the edition.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/scientificProjects/search/findByEditionId?editionId=1" \
+  -u user:password
+```
+
+</CodeGroup>
+
+---
+
+## Validation rules
+
+- `team` is required and must reference an existing team.
+- `edition` is required and must reference an existing edition.
+- The referenced team must be registered in the referenced edition.
+- `score`, when provided, must be non-negative.

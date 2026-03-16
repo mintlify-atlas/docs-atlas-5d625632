@@ -1,0 +1,124 @@
+---
+title: "Edition teams"
+description: "Register a team to an edition using POST /editions/{editionId}/teams/{teamId}."
+---
+
+Team registration links an existing team to an open edition. The operation is subject to several business rules enforced at the service layer.
+
+<Note>
+  Team registration is only allowed when the edition is in the `OPEN` state. Both the edition and the team must already exist.
+</Note>
+
+## Register a team to an edition
+
+`POST /editions/{editionId}/teams/{teamId}`
+
+**Authentication required.**
+
+### Path parameters
+
+<ParamField path="editionId" type="integer" required>
+  The numeric ID of the edition.
+</ParamField>
+
+<ParamField path="teamId" type="string" required>
+  The string identifier (name) of the team to register.
+</ParamField>
+
+### Response — 201 Created
+
+<ResponseField name="editionId" type="string" required>
+  The ID of the edition (as a string).
+</ResponseField>
+
+<ResponseField name="teamId" type="string" required>
+  The ID of the registered team.
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Always `"REGISTERED"` on success.
+</ResponseField>
+
+## Example
+
+```bash cURL
+curl -X POST http://localhost:8080/editions/1/teams/LegoStars \
+  -u admin:password
+```
+
+```json Success response — 201 Created
+{
+  "editionId": "1",
+  "teamId": "LegoStars",
+  "status": "REGISTERED"
+}
+```
+
+## Error cases
+
+<Warning>
+  Business-rule violations return `409 Conflict`. State violations return `422 Unprocessable Entity`. Not-found errors return `404 Not Found`.
+</Warning>
+
+### Edition not found — 404 Not Found
+
+```json
+{
+  "error": "EDITION_NOT_FOUND",
+  "message": "Edition with id 9999 not found"
+}
+```
+
+### Team not found — 404 Not Found
+
+```json
+{
+  "error": "TEAM_NOT_FOUND",
+  "message": "Team with id NonExistentTeam not found"
+}
+```
+
+### Edition not open — 422 Unprocessable Entity
+
+Returned when the edition is in `DRAFT` or `CLOSED` state. Team registration is only allowed when the edition is `OPEN`.
+
+```json
+{
+  "error": "EDITION_OPERATION_NOT_ALLOWED",
+  "message": "Operation TEAM_REGISTRATION is not allowed when edition is in state DRAFT"
+}
+```
+
+### Team already registered — 409 Conflict
+
+```json
+{
+  "error": "TEAM_ALREADY_REGISTERED",
+  "message": "Team LegoStars is already registered in edition 1"
+}
+```
+
+### Maximum teams reached — 409 Conflict
+
+Each edition supports a maximum of **18 teams** (`Edition.MAX_TEAMS = 18`).
+
+```json
+{
+  "error": "MAX_TEAMS_REACHED",
+  "message": "Edition 1 has reached the maximum of 18 teams"
+}
+```
+
+## Error code reference
+
+| Error code | HTTP status | Cause |
+|---|---|---|
+| `EDITION_NOT_FOUND` | 404 | No edition with the given ID |
+| `TEAM_NOT_FOUND` | 404 | No team with the given ID |
+| `EDITION_OPERATION_NOT_ALLOWED` | 422 | Edition is not in `OPEN` state |
+| `TEAM_ALREADY_REGISTERED` | 409 | Team is already in this edition |
+| `MAX_TEAMS_REACHED` | 409 | Edition already has 18 teams |
+
+## Concurrency behaviour
+
+The registration service acquires a pessimistic write lock on the edition row (`findByIdForUpdate`) before checking team capacity. When two concurrent requests would both push the count past 18, exactly one succeeds with `201` and the other receives `409 MAX_TEAMS_REACHED` instead of a database-level error.

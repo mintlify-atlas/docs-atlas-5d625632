@@ -1,0 +1,310 @@
+---
+title: 'Venues'
+description: 'Create and manage venues where First Lego League events take place.'
+---
+
+A **Venue** represents a physical location where competition events are held. Each venue has a unique name and a city.
+
+## The Venue object
+
+<ResponseField name="id" type="integer">
+  Auto-generated unique identifier.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  The name of the venue. Must be non-blank and unique across all venues.
+</ResponseField>
+
+<ResponseField name="city" type="string" required>
+  The city where the venue is located. Must be non-blank.
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  HAL hypermedia links for navigation.
+  <Expandable title="properties">
+    <ResponseField name="_links.self.href" type="string">
+      URL of this venue resource.
+    </ResponseField>
+    <ResponseField name="_links.venue.href" type="string">
+      Canonical URL of this venue.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Endpoints
+
+### List all venues
+
+```
+GET /venues
+```
+
+Returns a paginated list of all venues.
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/venues
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "_embedded": {
+    "venues": [
+      {
+        "id": 1,
+        "name": "Sports Center Barcelona",
+        "city": "Barcelona",
+        "_links": {
+          "self": { "href": "http://localhost:8080/venues/1" },
+          "venue": { "href": "http://localhost:8080/venues/1" }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": { "href": "http://localhost:8080/venues" }
+  },
+  "page": { "size": 20, "totalElements": 1, "totalPages": 1, "number": 0 }
+}
+```
+
+---
+
+### Get a single venue
+
+```
+GET /venues/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/venues/1
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "id": 1,
+  "name": "Sports Center Barcelona",
+  "city": "Barcelona",
+  "_links": {
+    "self": { "href": "http://localhost:8080/venues/1" },
+    "venue": { "href": "http://localhost:8080/venues/1" }
+  }
+}
+```
+
+---
+
+### Create a venue
+
+```
+POST /venues
+```
+
+<ParamField body="name" type="string" required>
+  The name of the venue. Must be non-blank and unique.
+</ParamField>
+
+<ParamField body="city" type="string" required>
+  The city where the venue is located. Must be non-blank.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/venues \
+  -H "Content-Type: application/json" \
+  -u demo:password \
+  -d '{
+    "name": "My Venue",
+    "city": "Lleida"
+  }'
+```
+
+</CodeGroup>
+
+```json Response (201 Created)
+{
+  "id": 2,
+  "name": "My Venue",
+  "city": "Lleida",
+  "_links": {
+    "self": { "href": "http://localhost:8080/venues/2" },
+    "venue": { "href": "http://localhost:8080/venues/2" }
+  }
+}
+```
+
+---
+
+### Update a venue
+
+```
+PUT /venues/{id}
+```
+
+Full replacement of the venue resource.
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT http://localhost:8080/venues/2 \
+  -H "Content-Type: application/json" \
+  -u demo:password \
+  -d '{
+    "name": "My Venue",
+    "city": "Manresa"
+  }'
+```
+
+</CodeGroup>
+
+You can also partially update with `PATCH`:
+
+```
+PATCH /venues/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X PATCH http://localhost:8080/venues/2 \
+  -H "Content-Type: application/json" \
+  -u demo:password \
+  -d '{"city": "Manresa"}'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a venue
+
+```
+DELETE /venues/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE http://localhost:8080/venues/2 \
+  -u demo:password
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Search endpoints
+
+Search methods are exposed at `/venues/search`.
+
+### Find by name (exact)
+
+```
+GET /venues/search/findByName?name={name}
+```
+
+Returns the venue with the given exact name, if it exists.
+
+<ParamField query="name" type="string" required>
+  Exact venue name to look up.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/venues/search/findByName?name=Sports+Center+Barcelona"
+```
+
+</CodeGroup>
+
+---
+
+### Find by city
+
+```
+GET /venues/search/findByCity?city={city}
+```
+
+Returns all venues located in the specified city.
+
+<ParamField query="city" type="string" required>
+  The city name to filter by.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/venues/search/findByCity?city=Barcelona"
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "_embedded": {
+    "venues": [
+      {
+        "id": 1,
+        "name": "Sports Center Barcelona",
+        "city": "Barcelona"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Find by name (partial, case-insensitive)
+
+```
+GET /venues/search/findByNameContaining?name={substring}
+```
+
+Returns all venues whose name contains the given substring. The search is case-insensitive.
+
+<ParamField query="name" type="string" required>
+  Substring to search for within venue names.
+</ParamField>
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "http://localhost:8080/venues/search/findByNameContaining?name=sport"
+```
+
+</CodeGroup>
+
+```json Response (200 OK)
+{
+  "_embedded": {
+    "venues": [
+      {
+        "id": 1,
+        "name": "Sports Center Barcelona",
+        "city": "Barcelona"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Validation rules
+
+- `name` must not be blank and must be unique across all venues.
+- `city` must not be blank.
+- Attempting to create a venue with a duplicate name returns `409 Conflict` or `400 Bad Request`.

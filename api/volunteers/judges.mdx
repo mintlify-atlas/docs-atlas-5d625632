@@ -1,0 +1,185 @@
+---
+title: 'Judges'
+description: 'Manage judges — volunteers who evaluate project presentations and are assigned to project rooms.'
+keywords: ['judges', 'fll', 'volunteers', 'crud', 'rest']
+---
+
+A `Judge` is a volunteer who evaluates team project presentations. Judges extend the [Volunteer](/api/volunteers/volunteers) base entity with an `expert` flag and an assignment to a `ProjectRoom`.
+
+## Judge entity
+
+Inherits all [Volunteer base fields](/api/volunteers/volunteers#volunteer-base-entity), plus:
+
+<ResponseField name="expert" type="boolean">
+  Indicates whether the judge is an expert-level evaluator. Defaults to `false`.
+</ResponseField>
+
+<ResponseField name="memberOfRoom" type="object">
+  The `ProjectRoom` this judge is assigned to. `null` if not yet assigned.
+</ResponseField>
+
+---
+
+## List judges
+
+```
+GET /judges
+```
+
+Returns a paginated list of all judges. Public endpoint.
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page number.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of results per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort field and direction, e.g. `name,asc`.
+</ParamField>
+
+```bash List all judges
+curl -X GET http://localhost:8080/judges
+```
+
+### Search by name
+
+Case-insensitive substring match exposed via Spring Data REST:
+
+```bash Search judges by name
+curl -X GET "http://localhost:8080/judges/search/findByNameContaining?name=jordi"
+```
+
+Returns a list of judges whose names contain the query string (case-insensitive).
+
+---
+
+## Get a judge
+
+```
+GET /judges/{id}
+```
+
+<ParamField path="id" type="integer" required>
+  The numeric judge ID.
+</ParamField>
+
+```bash Get judge by ID
+curl -X GET http://localhost:8080/judges/3
+```
+
+---
+
+## Create a judge
+
+```
+POST /judges
+```
+
+Requires authentication.
+
+### Request body
+
+<ParamField body="name" type="string" required>
+  Full name. Cannot be blank.
+</ParamField>
+
+<ParamField body="emailAddress" type="string" required>
+  Valid, unique email address.
+</ParamField>
+
+<ParamField body="phoneNumber" type="string" required>
+  Contact phone number. Cannot be blank.
+</ParamField>
+
+<ParamField body="expert" type="boolean" default="false">
+  Whether the judge is an expert evaluator.
+</ParamField>
+
+```bash Create a judge
+curl -X POST http://localhost:8080/judges \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Jordi Puig",
+    "emailAddress": "jordi@udl.cat",
+    "phoneNumber": "123456789",
+    "expert": true
+  }'
+```
+
+Returns `201 Created` with a `Location` header.
+
+---
+
+## Update a judge
+
+<CodeGroup>
+
+```bash Full update (PUT)
+curl -X PUT http://localhost:8080/judges/3 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Jordi Puig Updated",
+    "emailAddress": "jordi@udl.cat",
+    "phoneNumber": "123456789",
+    "expert": true
+  }'
+```
+
+```bash Partial update (PATCH)
+curl -X PATCH http://localhost:8080/judges/3 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"name": "Jordi Puig Updated"}'
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Delete a judge
+
+```
+DELETE /judges/{id}
+```
+
+Requires authentication.
+
+```bash Delete a judge
+curl -X DELETE http://localhost:8080/judges/3 \
+  -u admin:admin
+```
+
+Returns `204 No Content` on success.
+
+---
+
+## Project room assignment
+
+Judge-to-room assignment is managed through the `memberOfRoom` relationship field. Set or update it via a `PATCH` request:
+
+```bash Assign judge to a project room
+curl -X PATCH http://localhost:8080/judges/3 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"memberOfRoom": "/projectRooms/1"}'
+```
+
+---
+
+## Validation rules
+
+| Field | Rule |
+|---|---|
+| `name` | Required, cannot be blank |
+| `emailAddress` | Required, valid email, unique |
+| `phoneNumber` | Required, cannot be blank |
+| `expert` | Optional boolean, defaults to `false` |

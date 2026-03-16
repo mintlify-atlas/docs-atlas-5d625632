@@ -1,0 +1,75 @@
+---
+title: 'Identity'
+description: 'Retrieve the identity of the currently authenticated user.'
+---
+
+Returns the full resource representation of the user associated with the current HTTP Basic credentials. Use this endpoint to confirm who you are authenticated as and to retrieve your user details.
+
+## Get current user identity
+
+```
+GET /identity
+```
+
+Authentication is **required**. The API uses HTTP Basic authentication.
+
+### Response (200 OK)
+
+The response is a Spring Data REST `PersistentEntityResource` — a HAL document representing the authenticated `User` entity.
+
+<ResponseField name="id" type="string">
+  The username (primary key) of the authenticated user.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  The email address of the authenticated user.
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  HAL links for the user resource.
+
+  <Expandable title="Link properties">
+    <ResponseField name="self" type="object">
+      Link to the user's own resource at `/users/{id}`.
+    </ResponseField>
+    <ResponseField name="user" type="object">
+      Alternative link to the user resource.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  The `password` field is **write-only** and is never included in the response, even when reading your own identity.
+</Note>
+
+### Error responses
+
+| HTTP status | Description |
+|---|---|
+| `401` | No credentials provided or credentials are invalid. |
+
+### Example
+
+<CodeGroup>
+
+```bash Get identity
+curl -X GET http://localhost:8080/identity \
+  -u demo:password
+```
+
+```json 200 OK
+{
+  "id": "demo",
+  "email": "demo@example.com",
+  "_links": {
+    "self": {
+      "href": "http://localhost:8080/users/demo"
+    },
+    "user": {
+      "href": "http://localhost:8080/users/demo"
+    }
+  }
+}
+```
+
+</CodeGroup>

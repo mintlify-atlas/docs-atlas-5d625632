@@ -1,0 +1,104 @@
+---
+title: "Edition tables"
+description: "Retrieve competition tables and their scheduled matches for an edition using GET /editions/{editionId}/tables."
+---
+
+This endpoint returns all competition tables associated with an edition, each containing the matches scheduled on that table. Only matches that have been scheduled (assigned to a table) are included.
+
+## Get competition tables
+
+`GET /editions/{editionId}/tables`
+
+**No authentication required.** This is a public endpoint.
+
+### Path parameters
+
+<ParamField path="editionId" type="integer" required>
+  The numeric ID of the edition.
+</ParamField>
+
+### Response — 200 OK
+
+Returns an array of competition table objects.
+
+<ResponseField name="[]" type="array" required>
+  List of competition tables.
+  <Expandable title="EditionCompetitionTableResponse">
+    <ResponseField name="identifier" type="string" required>
+      The unique identifier of the competition table (e.g. `"table-A"`).
+    </ResponseField>
+    <ResponseField name="matches" type="array" required>
+      List of scheduled matches on this table.
+      <Expandable title="EditionTableMatchResponse">
+        <ResponseField name="matchId" type="integer">The unique match ID.</ResponseField>
+        <ResponseField name="startTime" type="string">
+          ISO 8601 start time of the match, or `null` if not yet set.
+        </ResponseField>
+        <ResponseField name="endTime" type="string">
+          ISO 8601 end time of the match, or `null` if not yet set.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:8080/editions/1/tables
+```
+
+```bash cURL — authenticated
+curl http://localhost:8080/editions/1/tables \
+  -u admin:password
+```
+</CodeGroup>
+
+<Tabs>
+  <Tab title="Response with tables">
+    ```json
+    [
+      {
+        "identifier": "table-A",
+        "matches": [
+          {
+            "matchId": 101,
+            "startTime": "11:00",
+            "endTime": "11:20"
+          },
+          {
+            "matchId": 102,
+            "startTime": "11:20",
+            "endTime": "11:40"
+          }
+        ]
+      }
+    ]
+    ```
+  </Tab>
+  <Tab title="Response — no tables">
+    ```json
+    []
+    ```
+  </Tab>
+</Tabs>
+
+## Error cases
+
+### Edition not found — 404 Not Found
+
+Returned when no edition exists with the given ID.
+
+```json
+{
+  "error": "EDITION_NOT_FOUND"
+}
+```
+
+## Notes
+
+- Tables from other editions are never included — the query is scoped to the given `editionId`.
+- Matches that have not been assigned to a table (non-scheduled matches) are excluded from the response.
+- The tables are returned in insertion order (linked hash map traversal).
+- An empty array `[]` is returned when the edition exists but has no scheduled tables or matches.

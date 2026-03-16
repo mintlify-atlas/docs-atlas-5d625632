@@ -1,0 +1,115 @@
+---
+title: "Editions"
+description: "An Edition represents a single competition year or event in First Lego League. It controls the lifecycle of team registration and competition."
+---
+
+## What is an Edition?
+
+An **Edition** is the top-level container for a First Lego League competition event. It groups teams, volunteers, rounds, and matches under a single year and venue. Every piece of competition data — matches, results, rankings — traces back to an Edition.
+
+### Fields
+
+| Field | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `Long` | Auto-generated | Internal database identifier |
+| `year` | `Integer` | Required | The calendar year of the competition |
+| `venueName` | `String` | Required, non-blank | Name of the competition venue |
+| `description` | `String` | Required, non-blank | Free-text description of the event |
+| `state` | `EditionState` | Read-only via API | Set by lifecycle transitions; defaults to `DRAFT` |
+| `teams` | `Set<Team>` | Max 18 | Teams registered for this edition |
+
+<Note>
+The `state` field is read-only in the REST API. Use the edition lifecycle endpoint to transition states.
+</Note>
+
+---
+
+## Edition States
+
+An Edition moves through three states during its lifetime.
+
+<CardGroup cols={3}>
+  <Card title="DRAFT" icon="pencil">
+    The edition has been created but is not yet accepting team registrations. Configuration (venue, description) can still be edited.
+  </Card>
+  <Card title="OPEN" icon="door-open">
+    The edition is actively accepting team registrations. Teams can be added up to the maximum limit.
+  </Card>
+  <Card title="CLOSED" icon="lock">
+    The competition has concluded. No further registrations or state changes are permitted.
+  </Card>
+</CardGroup>
+
+---
+
+## State Transitions
+
+Transitions are strictly linear and irreversible.
+
+```
+DRAFT ──► OPEN ──► CLOSED
+```
+
+| From | To | Allowed |
+|---|---|---|
+| `DRAFT` | `OPEN` | Yes |
+| `OPEN` | `CLOSED` | Yes |
+| `CLOSED` | any | No |
+| `OPEN` | `DRAFT` | No |
+| `DRAFT` | `CLOSED` | No |
+
+<Warning>
+Once an Edition is `CLOSED`, it cannot be re-opened. There is no path back from `CLOSED` to any earlier state.
+</Warning>
+
+The transition is enforced by `EditionLifecycleService.isValidTransition()`. Attempting an illegal transition returns an `INVALID_EDITION_STATE_TRANSITION` error.
+
+<Steps>
+  <Step title="Create the Edition">
+    POST a new Edition. It begins in `DRAFT` state automatically.
+  </Step>
+  <Step title="Open for registration">
+    Transition the Edition to `OPEN`. Teams can now be registered.
+  </Step>
+  <Step title="Close the Edition">
+    Transition to `CLOSED` when competition is complete. This finalises all results.
+  </Step>
+</Steps>
+
+---
+
+## Team Registration Limit
+
+An Edition has a hard cap of **18 teams** (`Edition.MAX_TEAMS = 18`).
+
+```java
+public static final int MAX_TEAMS = 18;
+
+public boolean hasReachedMaxTeams() {
+    return teams.size() >= MAX_TEAMS;
+}
+```
+
+<Warning>
+Attempting to register a team when the Edition already has 18 teams will be rejected.
+</Warning>
+
+---
+
+## When Can Teams Register?
+
+Team registration is only permitted when the Edition is in the `OPEN` state. This is enforced by `EditionLifecycleService.assertOperationAllowed()`.
+
+```java
+case TEAM_REGISTRATION -> currentState == EditionState.OPEN;
+```
+
+Registering a team against a `DRAFT` or `CLOSED` Edition will return an `EDITION_OPERATION_NOT_ALLOWED` error.
+
+---
+
+## Relationships
+
+- **Teams** — A many-to-many relationship via the `edition_teams` join table. Teams can be registered to multiple editions and an edition can have up to 18 teams.
+- **Volunteers** — Referees, Judges, and Floaters each hold a foreign key reference to the Edition they are assigned to.
+- **Rounds** — Rounds belong to an Edition and contain the individual Matches.

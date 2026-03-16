@@ -1,0 +1,209 @@
+---
+title: "Manage editions"
+description: "CRUD operations for First Lego League competition editions, auto-exposed by Spring Data REST."
+---
+
+Editions represent a single FLL competition season held at a specific venue. Spring Data REST automatically exposes full CRUD for the `Edition` entity through the repository.
+
+<Note>
+  The `state` field is **read-only** on create/update. Use `PATCH /editions/{editionId}/state` to transition the lifecycle state.
+</Note>
+
+## Edition fields
+
+<ParamField body="year" type="integer" required>
+  The competition year (e.g. `2025`).
+</ParamField>
+
+<ParamField body="venueName" type="string" required>
+  Name of the competition venue (must not be blank).
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  A short description of the edition (must not be blank).
+</ParamField>
+
+<Note>
+  `state` is not accepted in request bodies. It defaults to `DRAFT` and can only be changed via the lifecycle endpoint. `MAX_TEAMS` is a hard constant of **18** — an edition cannot have more than 18 registered teams.
+</Note>
+
+## List all editions
+
+`GET /editions`
+
+Returns a paginated HAL collection of all editions. No authentication required.
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:8080/editions
+```
+
+```bash cURL with pagination
+curl "http://localhost:8080/editions?page=0&size=10&sort=year,desc"
+```
+</CodeGroup>
+
+<ResponseField name="_embedded.editions" type="array">
+  Array of edition objects.
+  <Expandable title="Edition object">
+    <ResponseField name="id" type="integer">Unique edition identifier.</ResponseField>
+    <ResponseField name="year" type="integer">Competition year.</ResponseField>
+    <ResponseField name="venueName" type="string">Venue name.</ResponseField>
+    <ResponseField name="description" type="string">Edition description.</ResponseField>
+    <ResponseField name="state" type="string">Current lifecycle state: `DRAFT`, `OPEN`, or `CLOSED`.</ResponseField>
+    <ResponseField name="_links" type="object">HAL links (`self`, `edition`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="_links" type="object">
+  Pagination links: `first`, `prev`, `self`, `next`, `last`.
+</ResponseField>
+
+<ResponseField name="page" type="object">
+  Pagination metadata: `size`, `totalElements`, `totalPages`, `number`.
+</ResponseField>
+
+```json Example response
+{
+  "_embedded": {
+    "editions": [
+      {
+        "id": 1,
+        "year": 2025,
+        "venueName": "Barcelona",
+        "description": "FLL Season 2025",
+        "state": "DRAFT",
+        "_links": {
+          "self": { "href": "http://localhost:8080/editions/1" },
+          "edition": { "href": "http://localhost:8080/editions/1" }
+        }
+      }
+    ]
+  },
+  "_links": {
+    "self": { "href": "http://localhost:8080/editions" }
+  },
+  "page": {
+    "size": 20,
+    "totalElements": 1,
+    "totalPages": 1,
+    "number": 0
+  }
+}
+```
+
+## Get one edition
+
+`GET /editions/{id}`
+
+Returns a single edition by its numeric ID. No authentication required.
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:8080/editions/1
+```
+</CodeGroup>
+
+```json Example response
+{
+  "id": 1,
+  "year": 2025,
+  "venueName": "Barcelona",
+  "description": "FLL Season 2025",
+  "state": "DRAFT",
+  "_links": {
+    "self": { "href": "http://localhost:8080/editions/1" },
+    "edition": { "href": "http://localhost:8080/editions/1" }
+  }
+}
+```
+
+## Create an edition
+
+`POST /editions`
+
+Creates a new edition. **Authentication required.** The `state` field is always initialized to `DRAFT` regardless of what you send.
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8080/editions \
+  -u admin:password \
+  -H "Content-Type: application/json" \
+  -d '{
+    "year": 2025,
+    "venueName": "Barcelona",
+    "description": "FLL Season 2025"
+  }'
+```
+</CodeGroup>
+
+**Request body**
+
+<ParamField body="year" type="integer" required>
+  Competition year.
+</ParamField>
+
+<ParamField body="venueName" type="string" required>
+  Venue name (non-blank).
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Edition description (non-blank).
+</ParamField>
+
+```json Example response — 201 Created
+{
+  "id": 1,
+  "year": 2025,
+  "venueName": "Barcelona",
+  "description": "FLL Season 2025",
+  "state": "DRAFT",
+  "_links": {
+    "self": { "href": "http://localhost:8080/editions/1" },
+    "edition": { "href": "http://localhost:8080/editions/1" }
+  }
+}
+```
+
+## Update an edition
+
+### Full update — `PUT /editions/{id}`
+
+Replaces all updatable fields. **Authentication required.**
+
+```bash cURL
+curl -X PUT http://localhost:8080/editions/1 \
+  -u admin:password \
+  -H "Content-Type: application/json" \
+  -d '{
+    "year": 2025,
+    "venueName": "Tarragona",
+    "description": "FLL Season 2025 — updated venue"
+  }'
+```
+
+### Partial update — `PATCH /editions/{id}`
+
+Updates only the supplied fields. **Authentication required.**
+
+```bash cURL
+curl -X PATCH http://localhost:8080/editions/1 \
+  -u admin:password \
+  -H "Content-Type: application/json" \
+  -d '{"venueName": "Tarragona"}'
+```
+
+Both return `200 OK` with the updated edition resource.
+
+## Delete an edition
+
+`DELETE /editions/{id}`
+
+Permanently removes an edition. **Authentication required.**
+
+```bash cURL
+curl -X DELETE http://localhost:8080/editions/1 \
+  -u admin:password
+```
+
+Returns `200 OK` (or `204 No Content`) on success.

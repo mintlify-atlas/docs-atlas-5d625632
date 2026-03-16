@@ -1,0 +1,243 @@
+---
+title: 'Competition tables'
+description: 'Manage competition tables and their referee assignments.'
+---
+
+A competition table is identified by a string ID (e.g. `"Table-A"`) and holds the matches played at that physical table. Each table can have at most **3 referees** supervising it.
+
+## CompetitionTable object
+
+<ResponseField name="id" type="string" required>
+  String identifier for the table (e.g. `"Table-A"`). Set on creation; cannot be changed.
+</ResponseField>
+
+<ResponseField name="matches" type="array">
+  Matches scheduled at this table.
+</ResponseField>
+
+<ResponseField name="referees" type="array">
+  Referees supervising this table. Maximum of 3 referees allowed.
+</ResponseField>
+
+<Note>
+  Attempting to add a fourth referee to a table will fail with a validation error: *"A table can have a maximum of 3 referees"*.
+</Note>
+
+---
+
+## CRUD endpoints
+
+These endpoints are exposed automatically by Spring Data REST at `/competitionTables`.
+
+### List all tables
+
+```
+GET /competitionTables
+```
+
+Returns a paginated HAL collection of all competition tables.
+
+**Query parameters**
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page index.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of items per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort expression, e.g. `id,asc`.
+</ParamField>
+
+<CodeGroup>
+
+```bash List tables
+curl -X GET http://localhost:8080/competitionTables
+```
+
+</CodeGroup>
+
+---
+
+### Get a table
+
+```
+GET /competitionTables/{id}
+```
+
+<ParamField path="id" type="string" required>
+  The string identifier of the competition table.
+</ParamField>
+
+<CodeGroup>
+
+```bash Get table by ID
+curl -X GET http://localhost:8080/competitionTables/Table-A
+```
+
+</CodeGroup>
+
+---
+
+### Create a table
+
+```
+POST /competitionTables
+```
+
+Requires authentication.
+
+**Request body**
+
+<ParamField body="id" type="string" required>
+  String identifier for the new table. Must not be blank.
+</ParamField>
+
+<CodeGroup>
+
+```bash Create a table
+curl -X POST http://localhost:8080/competitionTables \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"id": "Table-A"}'
+```
+
+</CodeGroup>
+
+---
+
+### Update a table
+
+```
+PUT /competitionTables/{id}
+```
+
+Replaces the entire table resource. Requires authentication.
+
+<CodeGroup>
+
+```bash Replace a table
+curl -X PUT http://localhost:8080/competitionTables/Table-A \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"id": "Table-A"}'
+```
+
+</CodeGroup>
+
+---
+
+### Partially update a table
+
+```
+PATCH /competitionTables/{id}
+```
+
+Updates only the supplied fields. Requires authentication.
+
+<CodeGroup>
+
+```bash Patch a table
+curl -X PATCH http://localhost:8080/competitionTables/Table-A \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"id": "Table-A"}'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a table
+
+```
+DELETE /competitionTables/{id}
+```
+
+Requires authentication.
+
+<CodeGroup>
+
+```bash Delete a table
+curl -X DELETE http://localhost:8080/competitionTables/Table-A \
+  -u demo:password
+```
+
+</CodeGroup>
+
+---
+
+## Get tables for an edition
+
+```
+GET /editions/{editionId}/tables
+```
+
+Returns all competition tables associated with a specific edition, together with the matches scheduled at each table.
+
+<Warning>
+  Returns `404` with error code `EDITION_NOT_FOUND` if the edition does not exist.
+</Warning>
+
+**Path parameters**
+
+<ParamField path="editionId" type="integer" required>
+  The ID of the edition.
+</ParamField>
+
+**Response**
+
+<ResponseField name="" type="array">
+  Array of competition table objects for the edition.
+
+  <Expandable title="Table item properties">
+    <ResponseField name="identifier" type="string">
+      The string ID of the competition table.
+    </ResponseField>
+
+    <ResponseField name="matches" type="array">
+      Matches scheduled at this table.
+
+      <Expandable title="Match properties">
+        <ResponseField name="matchId" type="integer">
+          Unique match identifier.
+        </ResponseField>
+        <ResponseField name="startTime" type="string">
+          Match start time (ISO-8601 string).
+        </ResponseField>
+        <ResponseField name="endTime" type="string">
+          Match end time (ISO-8601 string).
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash Get tables for an edition
+curl -X GET http://localhost:8080/editions/1/tables
+```
+
+```json Example response
+[
+  {
+    "identifier": "Table-A",
+    "matches": [
+      {
+        "matchId": 101,
+        "startTime": "2025-04-12T09:00:00",
+        "endTime": "2025-04-12T09:10:00"
+      }
+    ]
+  },
+  {
+    "identifier": "Table-B",
+    "matches": []
+  }
+]
+```
+
+</CodeGroup>

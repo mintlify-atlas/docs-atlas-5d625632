@@ -1,0 +1,106 @@
+---
+title: 'Deployment'
+description: 'Build a production Docker image and deploy the First Lego League backend.'
+keywords: ['deployment', 'docker', 'fly.io', 'production', 'spring boot']
+---
+
+## Docker
+
+### How the image is built
+
+The `Dockerfile` uses a two-stage build to keep the runtime image small:
+
+1. **Build stage** — uses the full Maven + JDK image to compile the application and produce the JAR.
+2. **Runtime stage** — copies only the JAR into a lean JRE image. No build tools are included in the final image.
+
+```dockerfile
+# Build stage
+FROM maven:3.9.12-ibm-semeru-21-noble AS build
+WORKDIR /app
+COPY pom.xml .
+RUN mvn -B -q dependency:go-offline
+COPY src ./src
+RUN mvn -B -q package -DskipTests -Dcheckstyle.skip=true
+
+# Runtime stage
+FROM ibm-semeru-runtimes:open-21-jre-noble
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
+CMD ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]
+```
+
+The container starts with the `prod` Spring profile active, which enables the production database schema and tightened CORS settings.
+
+### Build the image
+
+```bash
+docker build -t fll-backend .
+```
+
+### Run the container
+
+```bash
+docker run -p 8080:8080 fll-backend
+```
+
+The application is exposed on port **8080**.
+
+## Production configuration
+
+### Spring profile
+
+The `prod` profile is activated automatically by the Docker `CMD`. To activate it outside Docker:
+
+```bash
+java -Dspring.profiles.active=prod -jar app.jar
+```
+
+The `prod` profile enables:
+
+- **JPA DDL auto-generation** (`spring.jpa.generate-ddl: true`)
+- **Reduced log verbosity** — Hibernate, Spring Core, and Spring Web are all set to `error` level
+
+### Database
+
+The default embedded H2 database is not suitable for production. Configure an external datasource by passing environment variables or JVM properties at startup:
+
+```bash
+java -Dspring.profiles.active=prod \
+     -Dspring.datasource.url=jdbc:postgresql://db-host:5432/fll \
+     -Dspring.datasource.username=fll_user \
+     -Dspring.datasource.password=secret \
+     -jar app.jar
+```
+
+With Docker:
+
+```bash
+docker run -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://db-host:5432/fll \
+  -e SPRING_DATASOURCE_USERNAME=fll_user \
+  -e SPRING_DATASOURCE_PASSWORD=secret \
+  fll-backend
+```
+
+### CORS
+
+The `prod` profile widens the allowed origins to cover the production frontend and preview deployments:
+
+```yaml
+allowed-origins: "https://www.firstlegoleague.win,https://*.vercel.app,http://localhost:3000"
+```
+
+To restrict or extend this list, override `allowed-origins` at runtime:
+
+```bash
+docker run -p 8080:8080 \
+  -e ALLOWED_ORIGINS=https://your-domain.com \
+  fll-backend
+```
+
+## Fly.io
+
+The project is continuously deployed to [Fly.io](https://fly.dev). The live deployment status is tracked by the CI/CD badge in the repository README.
+
+Deployments are triggered automatically by the GitHub Actions CI/CD pipeline on push to the main branch. The deployed application runs the Docker image described above with the `prod` profile active.

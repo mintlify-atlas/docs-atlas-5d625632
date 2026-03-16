@@ -1,0 +1,246 @@
+---
+title: 'Rounds'
+description: 'Create, read, update, and delete rounds within a competition edition.'
+---
+
+Rounds group matches within an edition. Each round has a unique number and belongs to one edition.
+
+## Round object
+
+<ResponseField name="id" type="integer">
+  Auto-generated primary key.
+</ResponseField>
+
+<ResponseField name="number" type="integer" required>
+  Unique round number within the competition. Must be unique across all rounds.
+</ResponseField>
+
+<ResponseField name="edition" type="object">
+  The edition this round belongs to. Represented as a HAL link in Spring Data REST responses.
+</ResponseField>
+
+<ResponseField name="matches" type="array">
+  List of matches in this round. Managed via the round's association.
+</ResponseField>
+
+---
+
+## CRUD endpoints
+
+These endpoints are exposed automatically by Spring Data REST at `/rounds`.
+
+### List all rounds
+
+```
+GET /rounds
+```
+
+Returns a paginated HAL collection of all rounds.
+
+**Query parameters**
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page index.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of items per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort expression, e.g. `number,asc`.
+</ParamField>
+
+<CodeGroup>
+
+```bash List rounds
+curl -X GET http://localhost:8080/rounds
+```
+
+</CodeGroup>
+
+---
+
+### Get a round
+
+```
+GET /rounds/{id}
+```
+
+<ParamField path="id" type="integer" required>
+  Round ID.
+</ParamField>
+
+<CodeGroup>
+
+```bash Get round by ID
+curl -X GET http://localhost:8080/rounds/1
+```
+
+</CodeGroup>
+
+---
+
+### Create a round
+
+```
+POST /rounds
+```
+
+Requires authentication.
+
+**Request body**
+
+<ParamField body="number" type="integer" required>
+  Unique round number.
+</ParamField>
+
+<ParamField body="edition" type="string">
+  URI reference to the edition, e.g. `/editions/1`.
+</ParamField>
+
+<CodeGroup>
+
+```bash Create a round
+curl -X POST http://localhost:8080/rounds \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"number": 1, "edition": "/editions/1"}'
+```
+
+</CodeGroup>
+
+---
+
+### Update a round
+
+```
+PUT /rounds/{id}
+```
+
+Replaces the entire round resource. Requires authentication.
+
+<CodeGroup>
+
+```bash Replace a round
+curl -X PUT http://localhost:8080/rounds/1 \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"number": 2, "edition": "/editions/1"}'
+```
+
+</CodeGroup>
+
+---
+
+### Partially update a round
+
+```
+PATCH /rounds/{id}
+```
+
+Updates only the supplied fields. Requires authentication.
+
+<CodeGroup>
+
+```bash Patch a round
+curl -X PATCH http://localhost:8080/rounds/1 \
+  -u demo:password \
+  -H "Content-Type: application/json" \
+  -d '{"number": 3}'
+```
+
+</CodeGroup>
+
+---
+
+### Delete a round
+
+```
+DELETE /rounds/{id}
+```
+
+Requires authentication. Deleting a round also removes all associated matches (cascade).
+
+<CodeGroup>
+
+```bash Delete a round
+curl -X DELETE http://localhost:8080/rounds/1 \
+  -u demo:password
+```
+
+</CodeGroup>
+
+---
+
+## Search endpoints
+
+Spring Data REST exposes custom repository finder methods under `/rounds/search`.
+
+### Find by number
+
+```
+GET /rounds/search/findByNumber?number={number}
+```
+
+Returns the round with the given number, or a 404 if it does not exist.
+
+<ParamField query="number" type="integer" required>
+  The round number to search for.
+</ParamField>
+
+<CodeGroup>
+
+```bash Find round by number
+curl -X GET "http://localhost:8080/rounds/search/findByNumber?number=1"
+```
+
+</CodeGroup>
+
+---
+
+### Find by edition
+
+```
+GET /rounds/search/findByEditionId?editionId={editionId}
+```
+
+Returns all rounds belonging to the specified edition. Returns an empty list when the edition has no rounds.
+
+<ParamField query="editionId" type="integer" required>
+  The ID of the edition whose rounds you want to retrieve.
+</ParamField>
+
+<CodeGroup>
+
+```bash Find rounds by edition
+curl -X GET "http://localhost:8080/rounds/search/findByEditionId?editionId=1" \
+  -u demo:password
+```
+
+```json Example response
+{
+  "_embedded": {
+    "rounds": [
+      {
+        "id": 1,
+        "number": 101,
+        "_links": {
+          "self": { "href": "http://localhost:8080/rounds/1" },
+          "edition": { "href": "http://localhost:8080/rounds/1/edition" }
+        }
+      },
+      {
+        "id": 2,
+        "number": 102,
+        "_links": {
+          "self": { "href": "http://localhost:8080/rounds/2" },
+          "edition": { "href": "http://localhost:8080/rounds/2/edition" }
+        }
+      }
+    ]
+  }
+}
+```
+
+</CodeGroup>

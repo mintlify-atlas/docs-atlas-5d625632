@@ -1,0 +1,208 @@
+---
+title: 'Team members'
+description: 'Manage individual members belonging to a team. Each team may have up to 10 members.'
+keywords: ['team members', 'fll', 'crud', 'rest']
+---
+
+A `TeamMember` represents an individual participant on a team. Members are identified by an auto-generated integer ID and are always linked to exactly one team.
+
+<Warning>
+  A team may have **at most 10 members**. Attempting to add an 11th member returns a validation error.
+</Warning>
+
+## TeamMember entity
+
+<ResponseField name="id" type="integer">
+  Auto-generated numeric identifier.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Full name of the member. 2–100 characters.
+</ResponseField>
+
+<ResponseField name="birthDate" type="string" required>
+  Date of birth in ISO-8601 format (`YYYY-MM-DD`). Must be in the past.
+</ResponseField>
+
+<ResponseField name="gender" type="string">
+  Gender descriptor. Maximum 20 characters.
+</ResponseField>
+
+<ResponseField name="tShirtSize" type="string">
+  T-shirt size (e.g. `"S"`, `"M"`, `"L"`, `"XL"`). Maximum 10 characters.
+</ResponseField>
+
+<ResponseField name="role" type="string" required>
+  Role within the team (e.g. `"Captain"`, `"Programmer"`, `"Builder"`). Maximum 50 characters.
+</ResponseField>
+
+<ResponseField name="team" type="string">
+  The name (ID) of the team this member belongs to. Serialised as the team's string ID.
+</ResponseField>
+
+---
+
+## List team members
+
+```
+GET /teamMembers
+```
+
+Returns a paginated list of all team members. Public endpoint.
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page number.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of results per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort field and direction, e.g. `name,asc`.
+</ParamField>
+
+```bash List all team members
+curl -X GET http://localhost:8080/teamMembers
+```
+
+### Search by role
+
+The repository exposes a `findByRole` search endpoint via Spring Data REST:
+
+```bash Search by role
+curl -X GET "http://localhost:8080/teamMembers/search/findByRole?role=Captain"
+```
+
+---
+
+## Get a team member
+
+```
+GET /teamMembers/{id}
+```
+
+<ParamField path="id" type="integer" required>
+  The numeric team member ID.
+</ParamField>
+
+```bash Get team member by ID
+curl -X GET http://localhost:8080/teamMembers/42
+```
+
+---
+
+## Create a team member
+
+```
+POST /teamMembers
+```
+
+Requires authentication. The `team` field must reference an existing team by its name.
+
+### Request body
+
+<ParamField body="name" type="string" required>
+  Full name of the member. 2–100 characters.
+</ParamField>
+
+<ParamField body="birthDate" type="string" required>
+  Date of birth (`YYYY-MM-DD`). Must be in the past.
+</ParamField>
+
+<ParamField body="role" type="string" required>
+  Role in the team. Maximum 50 characters.
+</ParamField>
+
+<ParamField body="team" type="string" required>
+  HAL link or team name string. References the parent team resource, e.g. `"/teams/LegoStars"`.
+</ParamField>
+
+<ParamField body="gender" type="string">
+  Optional gender descriptor. Maximum 20 characters.
+</ParamField>
+
+<ParamField body="tShirtSize" type="string">
+  Optional t-shirt size. Maximum 10 characters.
+</ParamField>
+
+```bash Create a team member
+curl -X POST http://localhost:8080/teamMembers \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Pol Garcia",
+    "birthDate": "2010-03-15",
+    "role": "Programmer",
+    "gender": "M",
+    "tShirtSize": "S",
+    "team": "/teams/LegoStars"
+  }'
+```
+
+Returns `201 Created` with a `Location` header.
+
+---
+
+## Update a team member
+
+<CodeGroup>
+
+```bash Full update (PUT)
+curl -X PUT http://localhost:8080/teamMembers/42 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{
+    "name": "Pol Garcia",
+    "birthDate": "2010-03-15",
+    "role": "Captain",
+    "team": "/teams/LegoStars"
+  }'
+```
+
+```bash Partial update (PATCH)
+curl -X PATCH http://localhost:8080/teamMembers/42 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"role": "Captain"}'
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Delete a team member
+
+```
+DELETE /teamMembers/{id}
+```
+
+Requires authentication.
+
+```bash Delete a team member
+curl -X DELETE http://localhost:8080/teamMembers/42 \
+  -u admin:admin
+```
+
+Returns `204 No Content` on success.
+
+<Note>
+  When a team is deleted, all its members are removed automatically via cascade (`CascadeType.ALL` + `orphanRemoval = true`).
+</Note>
+
+---
+
+## Validation rules
+
+| Field | Rule |
+|---|---|
+| `name` | Required, 2–100 characters |
+| `birthDate` | Required, must be in the past |
+| `role` | Required, max 50 characters |
+| `gender` | Optional, max 20 characters |
+| `tShirtSize` | Optional, max 10 characters |
+| `team` | Required, must reference an existing team |

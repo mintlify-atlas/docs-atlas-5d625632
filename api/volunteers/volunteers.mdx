@@ -1,0 +1,149 @@
+---
+title: 'Volunteers'
+description: 'Base resource for all volunteer types in FLL. Volunteers are specialised into Judges, Referees, and Floaters.'
+keywords: ['volunteers', 'fll', 'crud', 'rest']
+---
+
+`Volunteer` is the abstract base entity for all volunteer types. Spring Data REST exposes a `/volunteers` collection that returns all volunteers regardless of their concrete subtype.
+
+The three concrete subtypes are:
+
+- **Judge** — assigned to project rooms.
+- **Referee** — assigned to competition tables.
+- **Floater** — assists specific teams during the event.
+
+<Note>
+  A person may not hold more than one volunteer role simultaneously. Each concrete subtype uses a separate database table (`judge`, `referees`, `floaters`) joined to the shared `volunteers` table via the `JOINED` inheritance strategy.
+</Note>
+
+## Volunteer base entity
+
+All volunteer subtypes inherit these fields:
+
+<ResponseField name="id" type="integer">
+  Auto-generated numeric identifier (shared across all subtypes).
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Full name of the volunteer. Cannot be blank.
+</ResponseField>
+
+<ResponseField name="emailAddress" type="string" required>
+  Unique email address. Must be a valid email format.
+</ResponseField>
+
+<ResponseField name="phoneNumber" type="string" required>
+  Contact phone number. Cannot be blank.
+</ResponseField>
+
+<ResponseField name="edition" type="object">
+  The edition this volunteer is assigned to. May be `null` if not yet assigned.
+</ResponseField>
+
+---
+
+## List volunteers
+
+```
+GET /volunteers
+```
+
+Returns a paginated list of all volunteers (all subtypes). Public endpoint.
+
+### Query parameters
+
+<ParamField query="page" type="integer" default="0">
+  Zero-based page number.
+</ParamField>
+
+<ParamField query="size" type="integer" default="20">
+  Number of results per page.
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort field and direction, e.g. `name,asc`.
+</ParamField>
+
+```bash List all volunteers
+curl -X GET http://localhost:8080/volunteers
+```
+
+---
+
+## Get a volunteer
+
+```
+GET /volunteers/{id}
+```
+
+<ParamField path="id" type="integer" required>
+  The numeric volunteer ID.
+</ParamField>
+
+```bash Get volunteer by ID
+curl -X GET http://localhost:8080/volunteers/5
+```
+
+---
+
+## Create a volunteer
+
+<Warning>
+  Direct creation via `POST /volunteers` is not recommended because `Volunteer` is abstract. Create concrete subtypes via `/judges`, `/referees`, or `/floaters` instead.
+</Warning>
+
+---
+
+## Update a volunteer
+
+Use the subtype endpoints (`/judges/{id}`, `/referees/{id}`, `/floaters/{id}`) to update volunteers.
+
+<CodeGroup>
+
+```bash Partial update (PATCH)
+curl -X PATCH http://localhost:8080/volunteers/5 \
+  -H "Content-Type: application/json" \
+  -u admin:admin \
+  -d '{"phoneNumber": "987654321"}'
+```
+
+</CodeGroup>
+
+Returns `204 No Content` on success.
+
+---
+
+## Delete a volunteer
+
+```
+DELETE /volunteers/{id}
+```
+
+Requires authentication.
+
+```bash Delete a volunteer
+curl -X DELETE http://localhost:8080/volunteers/5 \
+  -u admin:admin
+```
+
+Returns `204 No Content` on success.
+
+---
+
+## Subtypes
+
+| Subtype | Endpoint | Extra fields |
+|---|---|---|
+| Judge | `/judges` | `expert`, `memberOfRoom` |
+| Referee | `/referees` | `expert`, `supervisesTable` |
+| Floater | `/floaters` | `studentCode`, `assistedTeams` |
+
+---
+
+## Validation rules
+
+| Field | Rule |
+|---|---|
+| `name` | Required, cannot be blank |
+| `emailAddress` | Required, valid email, unique across all volunteers |
+| `phoneNumber` | Required, cannot be blank |
