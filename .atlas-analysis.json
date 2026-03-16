@@ -1,0 +1,136 @@
+{
+  "projectType": "api-service",
+  "projectName": "First Lego League Backend",
+  "projectDescription": "A Spring Boot REST API for managing First Lego League competition logistics, including teams, matches, scoring, leaderboards, and volunteer coordination.",
+  "theme": "sequoia",
+  "primaryColor": "#E3000B",
+  "lightColor": "#FF4D55",
+  "darkColor": "#A80008",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart", "authentication"]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/editions",
+              "concepts/teams-and-volunteers",
+              "concepts/matches-and-rounds",
+              "concepts/scoring-and-leaderboard"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/running-locally",
+              "guides/deployment",
+              "guides/edition-lifecycle"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["api/overview"]
+          },
+          {
+            "group": "Editions",
+            "pages": [
+              "api/editions/manage-editions",
+              "api/editions/edition-lifecycle",
+              "api/editions/edition-teams",
+              "api/editions/edition-volunteers",
+              "api/editions/edition-tables"
+            ]
+          },
+          {
+            "group": "Teams & Volunteers",
+            "pages": [
+              "api/teams/teams",
+              "api/teams/team-members",
+              "api/teams/coaches",
+              "api/volunteers/volunteers",
+              "api/volunteers/judges",
+              "api/volunteers/referees",
+              "api/volunteers/floaters"
+            ]
+          },
+          {
+            "group": "Matches",
+            "pages": [
+              "api/matches/matches",
+              "api/matches/match-assignment",
+              "api/matches/match-scheduling",
+              "api/matches/match-search",
+              "api/matches/match-score-registration"
+            ]
+          },
+          {
+            "group": "Competition",
+            "pages": [
+              "api/competition/rounds",
+              "api/competition/competition-tables",
+              "api/competition/project-rooms",
+              "api/competition/leaderboard"
+            ]
+          },
+          {
+            "group": "Users & Auth",
+            "pages": [
+              "api/users/register",
+              "api/users/identity"
+            ]
+          },
+          {
+            "group": "Other Resources",
+            "pages": [
+              "api/other/awards",
+              "api/other/media-content",
+              "api/other/scientific-projects",
+              "api/other/venues",
+              "api/other/records"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Edition lifecycle management (DRAFT → OPEN → CLOSED) with state transition validation",
+    "Team registration and management with max-team enforcement (18 teams per edition)",
+    "Match scheduling and assignment with uniqueness constraint (no two teams play each other twice)",
+    "Real-time score registration and automatic ranking/leaderboard calculation",
+    "Volunteer role management with conflict prevention (Judge/Referee role validation)",
+    "Project room management with judge assignment (manager + panelists model)",
+    "HAL+JSON hypermedia API with Spring Data REST and HATEOAS",
+    "OpenAPI/Swagger UI documentation via SpringDoc",
+    "Cucumber BDD integration tests covering all major scenarios",
+    "Stateless HTTP Basic authentication with Spring Security"
+  ],
+  "publicApiSurface": [
+    "POST /users — Register a new user",
+    "GET /identity — Get current authenticated user identity",
+    "GET /editions — List all editions",
+    "PATCH /editions/{editionId}/state — Transition edition lifecycle state",
+    "POST /editions/{editionId}/teams/{teamId} — Register a team to an edition",
+    "GET /editions/{editionId}/volunteers — Get volunteers grouped by type",
+    "GET /editions/{editionId}/tables — Get competition tables for an edition",
+    "GET /leaderboards/editions/{editionId} — Get paginated leaderboard for an edition",
+    "GET /matches/filter — Search/filter matches with pagination",
+    "GET /matches/search/findByTeam — Find matches by team URI",
+    "POST /matches/{matchId}/assign-table — Assign a competition table to a match",
+    "POST /matchAssignments/assign — Assign a referee to a match",
+    "POST /matchAssignments/batch — Batch assign referees to matches in a round",
+    "POST /matchResults/register — Register final match score and recalculate rankings",
+    "POST /project-rooms/assign-judge — Assign a judge to a project room",
+    "POST /teams/assign-coach — Assign a coach to a team"
+  ]
+}
